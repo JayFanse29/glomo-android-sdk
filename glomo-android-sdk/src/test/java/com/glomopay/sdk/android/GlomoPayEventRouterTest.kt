@@ -365,5 +365,11 @@ class GlomoPayEventRouterTest {
         override fun updateFlowType(flowType: String) = Unit
 
         override fun updateCheckoutUrl(url: String) = Unit
+
+        override fun updateColorScheme(
+            colorScheme: String,
+            appColorScheme: String,
+            deviceColorScheme: String,
+        ) = Unit
     }
 }

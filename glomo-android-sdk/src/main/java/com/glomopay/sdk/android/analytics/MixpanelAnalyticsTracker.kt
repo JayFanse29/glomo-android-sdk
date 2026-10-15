@@ -36,6 +36,9 @@ internal class MixpanelAnalyticsTracker(
 ) : AnalyticsTracker {
     @Volatile private var flowType: String = initialFlowType
     @Volatile private var checkoutUrl: String? = null
+    @Volatile private var colorScheme: String? = null
+    @Volatile private var appColorScheme: String? = null
+    @Volatile private var deviceColorScheme: String? = null
     private val timestampFormatter = SimpleDateFormat(
         "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
         Locale.US,
@@ -47,6 +50,16 @@ internal class MixpanelAnalyticsTracker(
 
     override fun updateCheckoutUrl(url: String) {
         checkoutUrl = url
+    }
+
+    override fun updateColorScheme(
+        colorScheme: String,
+        appColorScheme: String,
+        deviceColorScheme: String,
+    ) {
+        this.colorScheme = colorScheme
+        this.appColorScheme = appColorScheme
+        this.deviceColorScheme = deviceColorScheme
     }
 
     override fun track(event: String, properties: Map<String, Any?>) {
@@ -78,6 +91,11 @@ internal class MixpanelAnalyticsTracker(
         put("subscription_id", config.subscriptionId)
         put("public_key", config.publicKey)
         put("checkout_url", checkoutUrl)
+        // Omitted until resolved rather than defaulted: absence means the checkout had not got
+        // that far, where an invented "light" would read as a scheme we actually sent.
+        colorScheme?.let { put("color_scheme", it) }
+        appColorScheme?.let { put("app_color_scheme", it) }
+        deviceColorScheme?.let { put("device_color_scheme", it) }
         put("dev_mode", com.glomopay.sdk.android.BuildConfig.GLOMO_INTERNAL_BUILD)
         put("mock_mode", ConfigManager.isTestOrMock(config.publicKey))
         put("time", now)

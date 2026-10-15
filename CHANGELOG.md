@@ -6,6 +6,36 @@ This project follows [Semantic Versioning](https://semver.org/).
 Starting with 1.0.0, the public API follows Semantic Versioning. Breaking
 public API changes require a new major release.
 
+## [Unreleased]
+
+### Added
+
+- `GlomoPayConfig.appColorScheme` (`GlomoColorScheme.AUTO` | `LIGHT` | `DARK`, default `AUTO`)
+  asks the Glomo checkout page for a colour scheme. It requests rather than forces: the page
+  decides, against your merchant dashboard settings. `AUTO` follows the checkout Activity's night
+  mode, so an app that overrides its own gets what it set.
+- `GlomoPayCheckoutHandle.setColorScheme(GlomoColorScheme)` changes the scheme of a checkout that
+  is already open. The page is told through the bridge rather than reloaded, so a payment in
+  flight survives the change. A host night-mode change reaches an open checkout on its own while
+  the scheme is `AUTO`.
+- `GlomoColorScheme` enum.
+
+### Changed
+
+- Android WebView algorithmic darkening is now explicitly off on every page the SDK renders,
+  including bank and 3DS pages. Previously the platform could invert a page that handles its own
+  colours. Nothing to configure.
+- Improved SDK diagnostics around checkout appearance.
+
+### Binary compatibility
+
+- Adding `appColorScheme` to `GlomoPayConfig` rewrites its constructor, `copy`, `copyWith` and
+  their `$default` bridges. Source-compatible - the parameter is defaulted and goes last, so
+  existing call sites compile unchanged - but any **pre-compiled** artifact linking against the
+  2.0.0 constructor must be rebuilt. An ordinary app rebuilds from source and is unaffected.
+  This is the reason the property ships in the same release as the rest of the colour-scheme
+  work rather than following it.
+
 ## [2.0.0] - 2026-10-01
 
 ### Breaking

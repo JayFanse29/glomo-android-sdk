@@ -6,6 +6,16 @@ internal interface AnalyticsTracker {
     fun updateFlowType(flowType: String)
 
     fun updateCheckoutUrl(url: String)
+
+    /**
+     * Records what the colour scheme resolved to, what the merchant asked for, and what the host
+     * app's night mode was.
+     *
+     * All three, because `color_scheme: dark` alone cannot tell a merchant who asked for dark from
+     * one on `auto` whose host app was dark - two very different conversations when a report comes
+     * in. Rides every event, like the other contextual properties on this interface.
+     */
+    fun updateColorScheme(colorScheme: String, appColorScheme: String, deviceColorScheme: String)
 }
 
 internal object NoOpAnalyticsTracker : AnalyticsTracker {
@@ -14,6 +24,12 @@ internal object NoOpAnalyticsTracker : AnalyticsTracker {
     override fun updateFlowType(flowType: String) = Unit
 
     override fun updateCheckoutUrl(url: String) = Unit
+
+    override fun updateColorScheme(
+        colorScheme: String,
+        appColorScheme: String,
+        deviceColorScheme: String,
+    ) = Unit
 }
 
 internal object AnalyticsEvents {
@@ -59,4 +75,10 @@ internal object AnalyticsEvents {
     const val DEVICE_PERMISSION_REFUSED = "Device Permission Refused"
     const val CONSOLE_LOG_CAPTURED = "Console Log Captured"
     const val UNSUPPORTED_FUNCTIONALITY_USED = "Unsupported Functionality Used"
+
+    /**
+     * The colour scheme changed during a live checkout and was pushed to the pages. Not emitted
+     * for the scheme the checkout opened with - that rides `color_scheme` on every event already.
+     */
+    const val COLOR_SCHEME_CHANGED = "Checkout Color Scheme Changed"
 }

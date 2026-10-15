@@ -6,6 +6,13 @@ public data class GlomoPayConfig public constructor(
     public val orderId: String? = null,
     public val subscriptionId: String? = null,
     public val server: String? = null,
+    /**
+     * The colour scheme to request from the checkout page. Defaults to [GlomoColorScheme.AUTO].
+     *
+     * Changing it during a live checkout goes through `GlomoPayCheckoutHandle.setColorScheme`,
+     * not through a new config - rebuilding the URL would reload the WebView and lose the payment.
+     */
+    public val appColorScheme: GlomoColorScheme = GlomoColorScheme.AUTO,
 ) {
     public val checkoutId: String?
         get() = orderId ?: subscriptionId
@@ -18,5 +25,6 @@ public data class GlomoPayConfig public constructor(
         orderId: String? = this.orderId,
         subscriptionId: String? = this.subscriptionId,
         server: String? = this.server,
-    ): GlomoPayConfig = GlomoPayConfig(publicKey, orderId, subscriptionId, server)
+        appColorScheme: GlomoColorScheme = this.appColorScheme,
+    ): GlomoPayConfig = GlomoPayConfig(publicKey, orderId, subscriptionId, server, appColorScheme)
 }
