@@ -10,7 +10,7 @@ public API changes require a new major release.
 
 ### Changed
 
-- Checkout now receives a per-open `journeyId`, and every Mixpanel event carries it as `journey_id` with `distinct_id = $device:<journeyId>` and `$device_id` instead of the order id; a new `sdk_loaded` event fires once per open, `$insert_id` is unique per event, and identifier properties are no longer partly redacted.
+- Checkout now receives a per-open `journeyId`, and every Mixpanel event carries it as `journey_id` with `distinct_id = $device:<journeyId>` and `$device_id` instead of the order id; new `sdk_loaded` and `sdk_closed` (`trigger`) events fire once per open and `sdk_failed` (`error_code`) fires when the open cannot load, `$insert_id` is unique per event, and identifier properties are no longer partly redacted.
 
 ## [2.0.0] - 2026-10-01
 

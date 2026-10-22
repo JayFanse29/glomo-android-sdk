@@ -27,6 +27,7 @@ internal class GlomoPayEventRouter(
     private val errorReporter: SdkErrorReporter = NoOpSdkErrorReporter,
     private val onBridgeReady: () -> Unit = {},
     private val onDependenciesFailed: () -> Unit = {},
+    private val onPageClosed: () -> Unit = {},
 ) {
     private val listener = listener?.let { com.glomopay.sdk.android.GuardedGlomoPayListener(it, errorReporter) }
     private val terminalDelivered = AtomicBoolean(false)
@@ -191,6 +192,7 @@ internal class GlomoPayEventRouter(
             }
             "checkout.closed" -> {
                 analytics.track(AnalyticsEvents.PAYMENT_TERMINATED, mapOf("termination_source" to "checkout_closed"))
+                onPageClosed()
                 completeCancelled(TerminationSource.USER_DISMISS)
             }
             "glomoCheckoutJourneyTerminate" -> analytics.track(

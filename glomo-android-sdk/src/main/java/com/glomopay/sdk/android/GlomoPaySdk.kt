@@ -4,6 +4,10 @@ import android.content.Context
 import com.glomopay.sdk.android.analytics.AnalyticsEvents
 import com.glomopay.sdk.android.analytics.AnalyticsFactory
 import com.glomopay.sdk.android.analytics.AnalyticsTracker
+import com.glomopay.sdk.android.analytics.SDK_INTEGRATION
+import com.glomopay.sdk.android.analytics.SdkCloseTrigger
+import com.glomopay.sdk.android.analytics.SdkFailureCode
+import com.glomopay.sdk.android.analytics.SdkLifecycleEvents
 import com.glomopay.sdk.android.monitoring.SdkErrorReporter
 import com.glomopay.sdk.android.monitoring.SdkErrorReporterFactory
 import com.glomopay.sdk.android.ui.GlomoPayCheckoutActivity
@@ -32,7 +36,8 @@ public object GlomoPaySdk {
             orderType,
             errorReporter,
         )
-        CheckoutSessionRegistry.put(sessionId, listener, analytics, errorReporter)
+        val lifecycleEvents = SdkLifecycleEvents(analytics)
+        CheckoutSessionRegistry.put(sessionId, listener, analytics, errorReporter, lifecycleEvents)
         trackSdkOpened(analytics)
         val intent = GlomoPayCheckoutActivity.createIntent(context, config, orderType)
             .putExtra(GlomoPayCheckoutActivity.EXTRA_SESSION_ID, sessionId)
@@ -41,6 +46,8 @@ public object GlomoPaySdk {
             context.startActivity(intent)
         } catch (error: Exception) {
             CheckoutSessionRegistry.remove(sessionId)
+            lifecycleEvents.failed(SdkFailureCode.START_FAILED, error.javaClass.simpleName)
+            lifecycleEvents.closed(SdkCloseTrigger.ERROR)
             throw error
         }
         return GlomoPayCheckoutHandle(sessionId)
@@ -48,7 +55,7 @@ public object GlomoPaySdk {
 
     internal fun trackSdkOpened(analytics: AnalyticsTracker) {
         analytics.track(AnalyticsEvents.SDK_INITIALIZED)
-        analytics.track(AnalyticsEvents.SDK_LOADED, mapOf("integration" to "android_sdk"))
+        analytics.track(AnalyticsEvents.SDK_LOADED, mapOf("integration" to SDK_INTEGRATION))
     }
 }
 
@@ -73,6 +80,7 @@ internal class CheckoutSession(
     val listener: GlomoPayListener,
     val analytics: AnalyticsTracker,
     val errorReporter: SdkErrorReporter,
+    val lifecycleEvents: SdkLifecycleEvents,
 ) {
     private var activity = java.lang.ref.WeakReference<GlomoPayCheckoutActivity>(null)
     private var closeRequested = false
@@ -98,8 +106,9 @@ internal object CheckoutSessionRegistry {
         listener: GlomoPayListener,
         analytics: AnalyticsTracker,
         errorReporter: SdkErrorReporter,
+        lifecycleEvents: SdkLifecycleEvents,
     ) {
-        sessions[id] = CheckoutSession(listener, analytics, errorReporter)
+        sessions[id] = CheckoutSession(listener, analytics, errorReporter, lifecycleEvents)
     }
 
     fun get(id: String?): CheckoutSession? = id?.let { sessions[it] }

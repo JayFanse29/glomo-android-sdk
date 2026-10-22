@@ -114,6 +114,12 @@ properties. `journey_id`, `session_id` and `$device_id` carry the per-open id th
 receives as `journeyId`, `distinct_id` is `$device:<journey_id>`, `$insert_id` is unique per event,
 and `order_id` is a plain property. Properties that cannot be determined are encoded as explicit JSON nulls.
 
+Each open also sends `sdk_loaded` when it starts, `sdk_failed` with an `error_code` (`open_timeout`,
+`connection_error`, `webview_error`, `http_error`, `validation_failed`, `order_type_detection_failed`,
+`compliance_blocked`, `dependencies_failed` or `start_failed`) when it cannot load, and `sdk_closed`
+once with a `trigger` (`user_dismiss`, `merchant`, `page`, `completed` or `error`). All three carry
+`integration = android_sdk`.
+
 For bank/3DS redirects, only `https://hostname` is transmitted. Credentials, port, path, query, and
 fragment are discarded before `Redirect Opened`, `Redirect Page Started`, `Redirect Page Finished`,
 and `Redirect URL Change` events are built. WebView context values are limited to `main` and `flow`.
