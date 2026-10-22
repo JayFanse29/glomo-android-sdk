@@ -110,8 +110,9 @@ permission dialog. It is used only to populate `$wifi_enabled` and `$cellular_en
 request IP; the SDK does not request device location permission or read GPS coordinates.
 
 Every event includes the approved device, screen, merchant-app, locale, SDK, flow, and session
-properties. `$insert_id` equals the checkout `session_id`, while `distinct_id` follows the nullable
-`order_id` contract. Properties that cannot be determined are encoded as explicit JSON nulls.
+properties. `journey_id`, `session_id` and `$device_id` carry the per-open id that checkout also
+receives as `journeyId`, `distinct_id` is `$device:<journey_id>`, `$insert_id` is unique per event,
+and `order_id` is a plain property. Properties that cannot be determined are encoded as explicit JSON nulls.
 
 For bank/3DS redirects, only `https://hostname` is transmitted. Credentials, port, path, query, and
 fragment are discarded before `Redirect Opened`, `Redirect Page Started`, `Redirect Page Finished`,

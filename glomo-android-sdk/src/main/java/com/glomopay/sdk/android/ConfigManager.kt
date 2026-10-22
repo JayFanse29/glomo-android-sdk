@@ -18,14 +18,18 @@ public object ConfigManager {
         return if (orderType.lowercase() == "lrs") DEFAULT_LRS_BASE_URL else DEFAULT_STANDARD_BASE_URL
     }
 
-    public fun getCheckoutUrl(config: GlomoPayConfig, orderType: String = "standard"): String {
+    public fun getCheckoutUrl(config: GlomoPayConfig, orderType: String = "standard"): String =
+        getCheckoutUrl(config, orderType, journeyId = null)
+
+    internal fun getCheckoutUrl(config: GlomoPayConfig, orderType: String, journeyId: String?): String {
         val checkoutId = config.checkoutId ?: ""
         return withQuery(
             getBaseUrl(config, orderType),
-            listOf(
+            listOfNotNull(
                 "orderId" to checkoutId,
                 "publicKey" to config.publicKey,
                 "mode" to getMode(config.publicKey),
+                journeyId?.takeIf(String::isNotBlank)?.let { "journeyId" to it },
             ),
         )
     }

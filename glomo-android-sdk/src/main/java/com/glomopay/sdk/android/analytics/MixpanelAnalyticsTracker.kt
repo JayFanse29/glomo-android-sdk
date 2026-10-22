@@ -14,6 +14,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
@@ -83,8 +84,10 @@ internal class MixpanelAnalyticsTracker(
         put("time", now)
         put("timestamp", isoTimestamp(now))
         put("session_id", sessionId)
-        put("\$insert_id", sessionId)
-        put("distinct_id", config.orderId)
+        put("journey_id", sessionId)
+        put("\$device_id", sessionId)
+        put("\$insert_id", UUID.randomUUID().toString())
+        put("distinct_id", "\$device:$sessionId")
     }
 
     private fun isoTimestamp(timeMillis: Long): String = synchronized(timestampFormatter) {

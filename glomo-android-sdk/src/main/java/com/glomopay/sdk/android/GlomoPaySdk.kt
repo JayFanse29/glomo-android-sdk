@@ -33,7 +33,7 @@ public object GlomoPaySdk {
             errorReporter,
         )
         CheckoutSessionRegistry.put(sessionId, listener, analytics, errorReporter)
-        analytics.track(AnalyticsEvents.SDK_INITIALIZED)
+        trackSdkOpened(analytics)
         val intent = GlomoPayCheckoutActivity.createIntent(context, config, orderType)
             .putExtra(GlomoPayCheckoutActivity.EXTRA_SESSION_ID, sessionId)
         if (context !is android.app.Activity) intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -44,6 +44,11 @@ public object GlomoPaySdk {
             throw error
         }
         return GlomoPayCheckoutHandle(sessionId)
+    }
+
+    internal fun trackSdkOpened(analytics: AnalyticsTracker) {
+        analytics.track(AnalyticsEvents.SDK_INITIALIZED)
+        analytics.track(AnalyticsEvents.SDK_LOADED, mapOf("integration" to "android_sdk"))
     }
 }
 

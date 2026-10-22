@@ -56,6 +56,27 @@ class ConfigManagerTest {
     }
 
     @Test
+    fun checkout_url_appends_journey_id_after_mode() {
+        val config = GlomoPayConfig("test_key", orderId = "order_1")
+        val url = ConfigManager.getCheckoutUrl(config, "lrs", "0f8e6c1a-2b3d-4e5f-8a9b-0c1d2e3f4a5b")
+
+        assertEquals(
+            "https://lrs-checkout.glomopay.com/?orderId=order_1&publicKey=test_key&mode=mock" +
+                "&journeyId=0f8e6c1a-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
+            url,
+        )
+    }
+
+    @Test
+    fun checkout_url_omits_journey_id_when_absent_or_blank() {
+        val config = GlomoPayConfig("test_key", orderId = "order_1")
+
+        assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config)), "journeyId"))
+        assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config, "standard", null)), "journeyId"))
+        assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config, "standard", " ")), "journeyId"))
+    }
+
+    @Test
     fun checkout_document_start_origin_rules_match_the_checkout_host_only() {
         assertEquals(
             setOf("https://checkout.glomopay.com"),

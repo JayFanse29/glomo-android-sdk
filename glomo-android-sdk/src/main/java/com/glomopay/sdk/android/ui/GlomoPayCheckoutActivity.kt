@@ -389,7 +389,7 @@ public class GlomoPayCheckoutActivity : Activity() {
     private fun openCheckout(orderType: String) {
         currentOrderType = orderType.lowercase()
         prepareEducationCarousel(currentOrderType)
-        val url = ConfigManager.getCheckoutUrl(config, currentOrderType)
+        val url = ConfigManager.getCheckoutUrl(config, currentOrderType, sessionId)
         analytics.updateFlowType(currentOrderType)
         errorReporter.updateFlowType(currentOrderType)
         analytics.updateCheckoutUrl(url)
@@ -672,7 +672,7 @@ public class GlomoPayCheckoutActivity : Activity() {
         mainErrorPanel?.visibility = View.GONE
         updateState(CheckoutUiState.Loading)
         prepareEducationCarousel(currentOrderType)
-        val retryUrl = currentUrl ?: ConfigManager.getCheckoutUrl(config, currentOrderType)
+        val retryUrl = currentUrl ?: ConfigManager.getCheckoutUrl(config, currentOrderType, sessionId)
         installMainDocumentStartInjection(retryUrl)
         webView.loadUrl(retryUrl)
     }

@@ -6,6 +6,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 Starting with 1.0.0, the public API follows Semantic Versioning. Breaking
 public API changes require a new major release.
 
+## Unreleased
+
+### Changed
+
+- Checkout now receives a per-open `journeyId`, and every Mixpanel event carries it as `journey_id` with `distinct_id = $device:<journeyId>` and `$device_id` instead of the order id; a new `sdk_loaded` event fires once per open, `$insert_id` is unique per event, and identifier properties are no longer partly redacted.
+
 ## [2.0.0] - 2026-10-01
 
 ### Breaking
