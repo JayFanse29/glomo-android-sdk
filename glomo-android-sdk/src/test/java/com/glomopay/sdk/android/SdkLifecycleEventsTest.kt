@@ -156,6 +156,48 @@ class SdkLifecycleEventsTest {
     }
 
     @Test
+    fun sdk_failed_stops_once_the_open_has_loaded() {
+        val lifecycle = SdkLifecycleEvents(tracker)
+
+        lifecycle.failed(SdkFailureCode.OPEN_TIMEOUT)
+        lifecycle.recovered()
+        lifecycle.failed(SdkFailureCode.CONNECTION_ERROR)
+        lifecycle.loaded()
+        lifecycle.recovered()
+        lifecycle.failed(ConnectionError.fromWebResourceError("net::ERR_INTERNET_DISCONNECTED", -2).toFailureCode())
+
+        assertEquals(
+            listOf("open_timeout", "connection_error"),
+            events.filter { it.name == "sdk_failed" }.map { it.properties["error_code"] },
+        )
+    }
+
+    @Test
+    fun only_the_main_webview_reports_dependency_failures_as_an_open_failure() {
+        val lifecycle = SdkLifecycleEvents(tracker)
+        val router = GlomoPayEventRouter(
+            null,
+            devMode = false,
+            onComplete = {},
+            analytics = tracker,
+            onDependenciesFailed = { lifecycle.failed(SdkFailureCode.DEPENDENCIES_FAILED) },
+        )
+
+        router.handleEnvelope(mapOf("type" to "dependencies.failed_to_load"), "flow")
+        router.handleEnvelope(mapOf(
+            "type" to "message",
+            "data" to mapOf("type" to "dependencies.failed_to_load"),
+        ), "flow")
+
+        assertEquals(2, events.count { it.name == "Checkout Dependencies Failed" })
+        assertEquals(0, events.count { it.name == "sdk_failed" })
+
+        router.handleEnvelope(mapOf("type" to "dependencies.failed_to_load"), "main")
+
+        assertEquals("dependencies_failed", events.single { it.name == "sdk_failed" }.properties["error_code"])
+    }
+
+    @Test
     fun sdk_failed_message_is_sanitized() {
         SdkLifecycleEvents(tracker).failed(SdkFailureCode.START_FAILED, "Failed for user@example.com 9876543210")
 

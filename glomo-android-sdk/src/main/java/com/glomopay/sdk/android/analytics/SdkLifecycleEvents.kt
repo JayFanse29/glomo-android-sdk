@@ -30,9 +30,10 @@ internal enum class SdkFailureCode(val value: String) {
 internal class SdkLifecycleEvents(private val analytics: AnalyticsTracker) {
     private val closed = AtomicBoolean(false)
     private val failing = AtomicBoolean(false)
+    private val loaded = AtomicBoolean(false)
 
     fun failed(code: SdkFailureCode, message: String? = null) {
-        if (!failing.compareAndSet(false, true)) return
+        if (loaded.get() || !failing.compareAndSet(false, true)) return
         analytics.track(AnalyticsEvents.SDK_FAILED, buildMap {
             put("integration", SDK_INTEGRATION)
             put("error_code", code.value)
@@ -42,6 +43,10 @@ internal class SdkLifecycleEvents(private val analytics: AnalyticsTracker) {
 
     fun recovered() {
         failing.set(false)
+    }
+
+    fun loaded() {
+        loaded.set(true)
     }
 
     fun closed(trigger: SdkCloseTrigger) {

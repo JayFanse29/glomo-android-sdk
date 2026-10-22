@@ -525,7 +525,7 @@ public class GlomoPayCheckoutActivity : Activity() {
 
     private fun markBridgeReady() {
         advanceOpenStep(com.glomopay.sdk.android.state.CheckoutOpenStep.BRIDGE_READY)
-        sdkLifecycle.recovered()
+        sdkLifecycle.loaded()
         openTimeout?.cancel()
         renderTimeout?.cancel()
         connectionFailureVisible = false

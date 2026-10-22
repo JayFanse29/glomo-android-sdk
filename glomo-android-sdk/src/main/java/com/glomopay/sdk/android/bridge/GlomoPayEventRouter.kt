@@ -80,8 +80,8 @@ internal class GlomoPayEventRouter(
                     onWindowClose()
                     emit("redirect.completed", emptyMap())
                 }
-                "message" -> handlePaymentEvent(envelope["data"] as? Map<*, *>)
-                "dependencies.failed_to_load" -> emitDependencyError(envelope["message"]?.toString())
+                "message" -> handlePaymentEvent(envelope["data"] as? Map<*, *>, webViewType)
+                "dependencies.failed_to_load" -> emitDependencyError(envelope["message"]?.toString(), webViewType = webViewType)
                 "webview.error" -> analytics.track(AnalyticsEvents.WEBVIEW_ERROR, mapOf(
                     "error_type" to envelope["errorType"]?.toString(),
                     "error_message" to envelope["message"]?.toString(),
@@ -123,7 +123,7 @@ internal class GlomoPayEventRouter(
         ))
     }
 
-    private fun handlePaymentEvent(rawData: Map<*, *>?) {
+    private fun handlePaymentEvent(rawData: Map<*, *>?, webViewType: String) {
         if (rawData == null) return
         val data = rawData.entries.associate { it.key.toString() to it.value }
         val eventName = (data["type"] as? String)?.takeIf { it.isNotEmpty() }
@@ -210,7 +210,7 @@ internal class GlomoPayEventRouter(
                 AnalyticsEvents.EDUCATION_STEPS_FAILED,
                 mapOf("reason" to (payloadData["reason"]?.toString() ?: "render_failed")),
             )
-            "dependencies.failed_to_load" -> emitDependencyError(data["message"]?.toString(), "postMessage")
+            "dependencies.failed_to_load" -> emitDependencyError(data["message"]?.toString(), "postMessage", webViewType)
         }
     }
 
@@ -246,8 +246,8 @@ internal class GlomoPayEventRouter(
         listener?.onEvent("glomo_android_sdk.$name", data)
     }
 
-    private fun emitDependencyError(message: String?, source: String = "bridge") {
-        onDependenciesFailed()
+    private fun emitDependencyError(message: String?, source: String = "bridge", webViewType: String) {
+        if (webViewType == "main") onDependenciesFailed()
         analytics.track(AnalyticsEvents.CHECKOUT_DEPENDENCIES_FAILED, mapOf(
             "error_message" to (message ?: "Checkout dependencies failed to load"),
         ))
