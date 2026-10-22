@@ -90,23 +90,6 @@ class MixpanelAnalyticsTrackerTest {
     }
 
     @Test
-    fun checkout_url_journey_id_matches_the_tracked_journey_id() {
-        val events = mutableListOf<AnalyticsEvent>()
-        val sessionId = UUID.randomUUID().toString()
-        val config = GlomoPayConfig(publicKey = "test_public_key", orderId = "order_123")
-        val tracker = tracker(config, sessionId) { events += it }
-
-        tracker.track("Checkout Started")
-
-        val url = URI(ConfigManager.getCheckoutUrl(config, "lrs", sessionId))
-        val journeyId = url.rawQuery.split('&').single { it.startsWith("journeyId=") }.substringAfter('=')
-        assertEquals(sessionId.lowercase(), journeyId)
-        assertEquals(journeyId, events.single().properties["journey_id"])
-        assertEquals(journeyId, events.single().properties["\$device_id"])
-        assertEquals("\$device:$journeyId", events.single().properties["distinct_id"])
-    }
-
-    @Test
     fun checkout_url_is_tracked_without_its_query_string() {
         val events = mutableListOf<AnalyticsEvent>()
         val sessionId = UUID.randomUUID().toString()

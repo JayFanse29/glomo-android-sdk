@@ -77,6 +77,31 @@ class ConfigManagerTest {
     }
 
     @Test
+    fun retry_url_replaces_the_journey_id_on_a_checkout_origin_url() {
+        val config = GlomoPayConfig("test_key", orderId = "order_1")
+
+        assertEquals(
+            "https://lrs-checkout.glomopay.com/review?orderId=order_1&step=2&journeyId=journey-1#top",
+            ConfigManager.getRetryUrl(
+                config,
+                "lrs",
+                "journey-1",
+                "https://lrs-checkout.glomopay.com/review?orderId=order_1&journeyId=stale&step=2#top",
+            ),
+        )
+    }
+
+    @Test
+    fun retry_url_rebuilds_the_checkout_url_off_the_checkout_origin_or_without_a_last_url() {
+        val config = GlomoPayConfig("test_key", orderId = "order_1")
+        val checkoutUrl = ConfigManager.getCheckoutUrl(config, "lrs", "journey-1")
+
+        assertEquals(checkoutUrl, ConfigManager.getRetryUrl(config, "lrs", "journey-1", "https://bank.example/acs?t=1"))
+        assertEquals(checkoutUrl, ConfigManager.getRetryUrl(config, "lrs", "journey-1", "about:blank"))
+        assertEquals(checkoutUrl, ConfigManager.getRetryUrl(config, "lrs", "journey-1", null))
+    }
+
+    @Test
     fun checkout_document_start_origin_rules_match_the_checkout_host_only() {
         assertEquals(
             setOf("https://checkout.glomopay.com"),

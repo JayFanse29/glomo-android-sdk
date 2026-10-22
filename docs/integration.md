@@ -94,11 +94,15 @@ The sample app accepts a public key and order/subscription ID, enables developer
 ## Analytics build configuration
 
 The Android AAR sends the documented checkout events directly to Mixpanel's `/track?ip=1` API. The
-project token is compiled into the AAR from the `MIXPANEL_TOKEN` Gradle property or environment
-variable and is never accepted through the merchant-facing SDK API.
+project token is compiled into the AAR per build type and is never accepted through the
+merchant-facing SDK API. Release builds read `MIXPANEL_TOKEN_PROD` (prod project 4006315), falling
+back to the legacy `MIXPANEL_TOKEN`; prefer `MIXPANEL_TOKEN_PROD`. Debug builds, including the
+sample app, read only `MIXPANEL_TOKEN_STAGING` (Mixpanel Staging project 4075301). Each is a Gradle
+property or environment variable.
 
 ```bash
-MIXPANEL_TOKEN="<project-token>" ./gradlew :glomo-android-sdk:assembleRelease
+MIXPANEL_TOKEN_PROD="<prod-project-token>" ./gradlew :glomo-android-sdk:assembleRelease
+MIXPANEL_TOKEN_STAGING="<staging-project-token>" ./gradlew :sample-app:installDebug
 ```
 
 If the token is absent, analytics uses a no-op tracker and checkout behavior is unchanged. Do not
@@ -113,12 +117,6 @@ Every event includes the approved device, screen, merchant-app, locale, SDK, flo
 properties. `journey_id`, `session_id` and `$device_id` carry the per-open id that checkout also
 receives as `journeyId`, `distinct_id` is `$device:<journey_id>`, `$insert_id` is unique per event,
 and `order_id` is a plain property. Properties that cannot be determined are encoded as explicit JSON nulls.
-
-Each open also sends `sdk_loaded` when it starts, `sdk_failed` with an `error_code` (`open_timeout`,
-`connection_error`, `webview_error`, `http_error`, `validation_failed`, `order_type_detection_failed`,
-`compliance_blocked`, `dependencies_failed` or `start_failed`) when it cannot load, and `sdk_closed`
-once with a `trigger` (`user_dismiss`, `merchant`, `page`, `completed` or `error`). All three carry
-`integration = android_sdk`.
 
 For bank/3DS redirects, only `https://hostname` is transmitted. Credentials, port, path, query, and
 fragment are discarded before `Redirect Opened`, `Redirect Page Started`, `Redirect Page Finished`,

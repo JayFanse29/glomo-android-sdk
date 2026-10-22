@@ -27,7 +27,6 @@ internal class GlomoPayEventRouter(
     private val errorReporter: SdkErrorReporter = NoOpSdkErrorReporter,
     private val onBridgeReady: () -> Unit = {},
     private val onDependenciesFailed: () -> Unit = {},
-    private val onPageClosed: () -> Unit = {},
 ) {
     private val listener = listener?.let { com.glomopay.sdk.android.GuardedGlomoPayListener(it, errorReporter) }
     private val terminalDelivered = AtomicBoolean(false)
@@ -80,8 +79,8 @@ internal class GlomoPayEventRouter(
                     onWindowClose()
                     emit("redirect.completed", emptyMap())
                 }
-                "message" -> handlePaymentEvent(envelope["data"] as? Map<*, *>, webViewType)
-                "dependencies.failed_to_load" -> emitDependencyError(envelope["message"]?.toString(), webViewType = webViewType)
+                "message" -> handlePaymentEvent(envelope["data"] as? Map<*, *>)
+                "dependencies.failed_to_load" -> emitDependencyError(envelope["message"]?.toString())
                 "webview.error" -> analytics.track(AnalyticsEvents.WEBVIEW_ERROR, mapOf(
                     "error_type" to envelope["errorType"]?.toString(),
                     "error_message" to envelope["message"]?.toString(),
@@ -123,7 +122,7 @@ internal class GlomoPayEventRouter(
         ))
     }
 
-    private fun handlePaymentEvent(rawData: Map<*, *>?, webViewType: String) {
+    private fun handlePaymentEvent(rawData: Map<*, *>?) {
         if (rawData == null) return
         val data = rawData.entries.associate { it.key.toString() to it.value }
         val eventName = (data["type"] as? String)?.takeIf { it.isNotEmpty() }
@@ -192,7 +191,6 @@ internal class GlomoPayEventRouter(
             }
             "checkout.closed" -> {
                 analytics.track(AnalyticsEvents.PAYMENT_TERMINATED, mapOf("termination_source" to "checkout_closed"))
-                onPageClosed()
                 completeCancelled(TerminationSource.USER_DISMISS)
             }
             "glomoCheckoutJourneyTerminate" -> analytics.track(
@@ -210,7 +208,7 @@ internal class GlomoPayEventRouter(
                 AnalyticsEvents.EDUCATION_STEPS_FAILED,
                 mapOf("reason" to (payloadData["reason"]?.toString() ?: "render_failed")),
             )
-            "dependencies.failed_to_load" -> emitDependencyError(data["message"]?.toString(), "postMessage", webViewType)
+            "dependencies.failed_to_load" -> emitDependencyError(data["message"]?.toString(), "postMessage")
         }
     }
 
@@ -246,8 +244,8 @@ internal class GlomoPayEventRouter(
         listener?.onEvent("glomo_android_sdk.$name", data)
     }
 
-    private fun emitDependencyError(message: String?, source: String = "bridge", webViewType: String) {
-        if (webViewType == "main") onDependenciesFailed()
+    private fun emitDependencyError(message: String?, source: String = "bridge") {
+        onDependenciesFailed()
         analytics.track(AnalyticsEvents.CHECKOUT_DEPENDENCIES_FAILED, mapOf(
             "error_message" to (message ?: "Checkout dependencies failed to load"),
         ))

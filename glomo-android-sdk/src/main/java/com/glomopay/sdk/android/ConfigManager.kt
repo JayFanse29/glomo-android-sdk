@@ -34,6 +34,18 @@ public object ConfigManager {
         )
     }
 
+    internal fun getRetryUrl(
+        config: GlomoPayConfig,
+        orderType: String,
+        journeyId: String?,
+        lastUrl: String?,
+    ): String {
+        val checkoutUrl = getCheckoutUrl(config, orderType, journeyId)
+        if (lastUrl == null) return checkoutUrl
+        if (checkoutDocumentStartOriginRules(lastUrl) != checkoutDocumentStartOriginRules(checkoutUrl)) return checkoutUrl
+        return journeyId?.takeIf(String::isNotBlank)?.let { withJourneyId(lastUrl, it) } ?: lastUrl
+    }
+
     internal fun getCheckoutDocumentStartOriginRules(
         config: GlomoPayConfig,
         orderType: String = "standard",
@@ -78,6 +90,17 @@ public object ConfigManager {
         val withoutFragment = if (fragmentStart >= 0) baseUrl.substring(0, fragmentStart) else baseUrl
         val withoutQuery = withoutFragment.substringBefore('?')
         return "$withoutQuery?$query$fragment"
+    }
+
+    private fun withJourneyId(url: String, journeyId: String): String {
+        val fragmentStart = url.indexOf('#')
+        val fragment = if (fragmentStart >= 0) url.substring(fragmentStart) else ""
+        val withoutFragment = if (fragmentStart >= 0) url.substring(0, fragmentStart) else url
+        val parameters = withoutFragment.substringAfter('?', "")
+            .split('&')
+            .filter { it.isNotEmpty() && it.substringBefore('=') != "journeyId" }
+        val query = (parameters + "journeyId=${encode(journeyId)}").joinToString("&")
+        return "${withoutFragment.substringBefore('?')}?$query$fragment"
     }
 
     private fun encode(value: String): String =

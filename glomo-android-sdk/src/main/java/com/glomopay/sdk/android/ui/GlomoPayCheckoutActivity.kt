@@ -43,11 +43,6 @@ import com.glomopay.sdk.android.analytics.AnalyticsTracker
 import com.glomopay.sdk.android.analytics.complianceAnalyticsProperties
 import com.glomopay.sdk.android.analytics.GlomoPayLogger
 import com.glomopay.sdk.android.analytics.NoOpAnalyticsTracker
-import com.glomopay.sdk.android.analytics.SdkCloseTrigger
-import com.glomopay.sdk.android.analytics.SdkFailureCode
-import com.glomopay.sdk.android.analytics.SdkLifecycleEvents
-import com.glomopay.sdk.android.analytics.toCloseTrigger
-import com.glomopay.sdk.android.analytics.toFailureCode
 import com.glomopay.sdk.android.carousel.EducationCarouselContract
 import com.glomopay.sdk.android.carousel.EducationCarouselState
 import com.glomopay.sdk.android.monitoring.NoOpSdkErrorReporter
@@ -75,7 +70,6 @@ public class GlomoPayCheckoutActivity : Activity() {
     private var sessionId: String? = null
     private var listener: com.glomopay.sdk.android.GlomoPayListener? = null
     private var analytics: AnalyticsTracker = NoOpAnalyticsTracker
-    private var sdkLifecycle = SdkLifecycleEvents(NoOpAnalyticsTracker)
     private var errorReporter: SdkErrorReporter = NoOpSdkErrorReporter
     private lateinit var eventRouter: GlomoPayEventRouter
     private lateinit var rootView: FrameLayout
@@ -131,7 +125,6 @@ public class GlomoPayCheckoutActivity : Activity() {
         sessionId = intent.getStringExtra(EXTRA_SESSION_ID)
         val checkoutSession = CheckoutSessionRegistry.get(sessionId)
         analytics = checkoutSession?.analytics ?: NoOpAnalyticsTracker
-        checkoutSession?.lifecycleEvents?.let { sdkLifecycle = it }
         errorReporter = checkoutSession?.errorReporter ?: NoOpSdkErrorReporter
         // Resolved after the reporter, so a throwing merchant callback is reportable.
         listener = checkoutSession?.listener?.let {
@@ -141,11 +134,7 @@ public class GlomoPayCheckoutActivity : Activity() {
         // A lost JS/native session cannot safely resume a payment. Do not reload it.
         if (checkoutSession == null || savedInstanceState != null) {
             listener?.onSdkError(listOf(SdkError(SdkErrorType.UNKNOWN, getString(R.string.glomopay_session_interrupted))))
-            sdkLifecycle.failed(SdkFailureCode.START_FAILED, "Checkout session interrupted")
-            finishWith(
-                GlomoPayResult.Failure("Checkout session interrupted", "SESSION_INTERRUPTED"),
-                SdkCloseTrigger.ERROR,
-            )
+            finishWith(GlomoPayResult.Failure("Checkout session interrupted", "SESSION_INTERRUPTED"))
             return
         }
         checkoutSession.attach(this)
@@ -158,30 +147,27 @@ public class GlomoPayCheckoutActivity : Activity() {
                 "failure_reason" to validationFailureReason(publicKeyError, identifierError),
                 "error_message" to message,
             ))
-            sdkLifecycle.failed(SdkFailureCode.VALIDATION_FAILED, message)
             trackSdkError(SdkError(SdkErrorType.VALIDATION_ERROR, message))
             listener?.onSdkError(listOf(SdkError(SdkErrorType.VALIDATION_ERROR, message)))
-            finishWith(GlomoPayResult.Failure(message, "VALIDATION_ERROR"), SdkCloseTrigger.ERROR)
+            finishWith(GlomoPayResult.Failure(message, "VALIDATION_ERROR"))
             return
         }
         eventRouter = GlomoPayEventRouter(
             listener = listener,
             devMode = com.glomopay.sdk.android.BuildConfig.GLOMO_INTERNAL_BUILD,
-            onComplete = { finishWith(it, SdkCloseTrigger.COMPLETED) },
+            onComplete = { finishWith(it) },
             onWindowOpen = ::showFlow,
             onWindowClose = ::hideFlow,
             analytics = analytics,
             errorReporter = errorReporter,
             onBridgeReady = ::markBridgeReady,
             onDependenciesFailed = {
-                sdkLifecycle.failed(SdkFailureCode.DEPENDENCIES_FAILED)
                 openTimeout?.cancel()
                 renderTimeout?.cancel()
                 connectionFailureVisible = false
                 mainErrorPanel?.visibility = View.GONE
                 loadingLabel.visibility = View.GONE
             },
-            onPageClosed = { sdkLifecycle.closed(SdkCloseTrigger.PAGE) },
         )
         val strictCompliance = CompliancePolicy.requiresStrictCheck(config)
         val compliance = DeviceComplianceChecker.check(this, strictCompliance)
@@ -191,17 +177,13 @@ public class GlomoPayCheckoutActivity : Activity() {
         )
         if (!compliance.isCompliant) {
             analytics.track(AnalyticsEvents.DEVICE_COMPLIANCE_BLOCKED, mapOf("block_reason" to "root_detected"))
-            sdkLifecycle.failed(SdkFailureCode.COMPLIANCE_BLOCKED, "root_detected")
             val error = SdkError(
                 type = SdkErrorType.DEVICE_FORBIDDEN,
                 message = "Device is rooted or jailbroken.",
             )
             trackSdkError(error)
             listener?.onSdkError(listOf(error))
-            finishWith(
-                GlomoPayResult.Failure("Device does not meet security requirements", "DEVICE_NON_COMPLIANT"),
-                SdkCloseTrigger.ERROR,
-            )
+            finishWith(GlomoPayResult.Failure("Device does not meet security requirements", "DEVICE_NON_COMPLIANT"))
             return
         }
 
@@ -334,7 +316,6 @@ public class GlomoPayCheckoutActivity : Activity() {
                 analytics.track(AnalyticsEvents.ORDER_TYPE_DETECTION_FAILED, mapOf(
                     "error" to error.javaClass.simpleName,
                 ))
-                sdkLifecycle.failed(SdkFailureCode.ORDER_TYPE_DETECTION_FAILED, error.javaClass.simpleName)
                 errorReporter.capture(
                     operation = "order_type_detection",
                     error = error,
@@ -391,7 +372,7 @@ public class GlomoPayCheckoutActivity : Activity() {
         ))
         listener?.onConnectionError(error)
         listener?.onPaymentTerminate(com.glomopay.sdk.android.TerminationSource.CONNECTION_ERROR)
-        finishWith(GlomoPayResult.Failure(error.message, error.type.name), SdkCloseTrigger.ERROR)
+        finishWith(GlomoPayResult.Failure(error.message, error.type.name))
     }
 
     /**
@@ -402,7 +383,7 @@ public class GlomoPayCheckoutActivity : Activity() {
     private fun failCheckoutForSdkError(error: SdkError) {
         trackSdkError(error)
         listener?.onSdkError(listOf(error))
-        finishWith(GlomoPayResult.Failure(error.message, error.type.name), SdkCloseTrigger.ERROR)
+        finishWith(GlomoPayResult.Failure(error.message, error.type.name))
     }
 
     private fun openCheckout(orderType: String) {
@@ -460,7 +441,6 @@ public class GlomoPayCheckoutActivity : Activity() {
             ))
         }
         trackWebViewError(error, "main")
-        sdkLifecycle.failed(error.toFailureCode(), error.message)
         errorReporter.capture(
             operation = "main_webview_connection",
             error = IllegalStateException(error.type.name),
@@ -509,7 +489,6 @@ public class GlomoPayCheckoutActivity : Activity() {
             "last_step" to lastStep, "elapsed_ms" to (android.os.SystemClock.elapsedRealtime() - openStartedAt),
             "timeout_ms" to threshold, "reason" to reason,
         ))
-        sdkLifecycle.failed(SdkFailureCode.OPEN_TIMEOUT)
     }
 
     private fun startRenderWatchdog() {
@@ -525,7 +504,6 @@ public class GlomoPayCheckoutActivity : Activity() {
 
     private fun markBridgeReady() {
         advanceOpenStep(com.glomopay.sdk.android.state.CheckoutOpenStep.BRIDGE_READY)
-        sdkLifecycle.loaded()
         openTimeout?.cancel()
         renderTimeout?.cancel()
         connectionFailureVisible = false
@@ -687,7 +665,6 @@ public class GlomoPayCheckoutActivity : Activity() {
 
     private fun retryMainCheckout() {
         connectionFailureVisible = false
-        sdkLifecycle.recovered()
         openFunnel = com.glomopay.sdk.android.state.CheckoutOpenFunnel()
         startOpenWatchdog()
         advanceOpenStep(com.glomopay.sdk.android.state.CheckoutOpenStep.URL_RESOLVED)
@@ -695,7 +672,7 @@ public class GlomoPayCheckoutActivity : Activity() {
         mainErrorPanel?.visibility = View.GONE
         updateState(CheckoutUiState.Loading)
         prepareEducationCarousel(currentOrderType)
-        val retryUrl = currentUrl ?: ConfigManager.getCheckoutUrl(config, currentOrderType, sessionId)
+        val retryUrl = ConfigManager.getRetryUrl(config, currentOrderType, sessionId, currentUrl)
         installMainDocumentStartInjection(retryUrl)
         webView.loadUrl(retryUrl)
     }
@@ -715,7 +692,7 @@ public class GlomoPayCheckoutActivity : Activity() {
         finished = true
         analytics.track(AnalyticsEvents.PAYMENT_TERMINATED, mapOf("termination_source" to source.name.lowercase()))
         listener?.onPaymentTerminate(source)
-        finishWith(GlomoPayResult.Cancelled, source.toCloseTrigger(), alreadyClaimed = true)
+        finishWith(GlomoPayResult.Cancelled, alreadyClaimed = true)
     }
 
     private fun showFlow(url: String) {
@@ -936,10 +913,7 @@ public class GlomoPayCheckoutActivity : Activity() {
         }
         CheckoutSessionRegistry.get(sessionId)?.detach()
         if (!isChangingConfigurations) {
-            if (!finished) {
-                sdkLifecycle.closed(SdkCloseTrigger.USER_DISMISS)
-                listener?.onPaymentTerminate(com.glomopay.sdk.android.TerminationSource.USER_DISMISS)
-            }
+            if (!finished) listener?.onPaymentTerminate(com.glomopay.sdk.android.TerminationSource.USER_DISMISS)
             CheckoutSessionRegistry.remove(sessionId)
         }
         listener = null
@@ -951,10 +925,9 @@ public class GlomoPayCheckoutActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
 
-    private fun finishWith(result: GlomoPayResult, closeTrigger: SdkCloseTrigger, alreadyClaimed: Boolean = false) {
+    private fun finishWith(result: GlomoPayResult, alreadyClaimed: Boolean = false) {
         if (finished && !alreadyClaimed) return
         finished = true
-        sdkLifecycle.closed(closeTrigger)
         if (::eventRouter.isInitialized) eventRouter.stop()
         checkoutScope.cancel()
         CheckoutSessionRegistry.remove(sessionId)

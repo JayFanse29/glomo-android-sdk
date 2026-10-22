@@ -10,7 +10,12 @@ kotlin {
 group = "com.glomopay"
 version = "2.0.0"
 
-val mixpanelToken = providers.gradleProperty("MIXPANEL_TOKEN")
+val mixpanelStagingToken = providers.gradleProperty("MIXPANEL_TOKEN_STAGING")
+    .orElse(providers.environmentVariable("MIXPANEL_TOKEN_STAGING"))
+    .orElse("")
+val mixpanelProdToken = providers.gradleProperty("MIXPANEL_TOKEN_PROD")
+    .orElse(providers.environmentVariable("MIXPANEL_TOKEN_PROD"))
+    .orElse(providers.gradleProperty("MIXPANEL_TOKEN"))
     .orElse(providers.environmentVariable("MIXPANEL_TOKEN"))
     .orElse("")
 val sentryDsn = providers.gradleProperty("SENTRY_DSN")
@@ -38,8 +43,16 @@ android {
             .map { (it == "true").toString() }.orElse("false").get())
         consumerProguardFiles("consumer-rules.pro")
         resValue("string", "glomopay_sdk_version", project.version.toString())
-        resValue("string", "glomopay_mixpanel_token", mixpanelToken.get())
         resValue("string", "glomopay_sentry_dsn", sentryDsn.get())
+    }
+
+    buildTypes {
+        debug {
+            resValue("string", "glomopay_mixpanel_token", mixpanelStagingToken.get())
+        }
+        release {
+            resValue("string", "glomopay_mixpanel_token", mixpanelProdToken.get())
+        }
     }
 
     compileOptions {
@@ -53,6 +66,10 @@ android {
 
     buildFeatures {
         buildConfig = true
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 
 }
@@ -98,4 +115,5 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.0.21")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:2.0.21")
     testImplementation("org.json:json:20240303")
+    testImplementation("org.robolectric:robolectric:4.14.1")
 }
