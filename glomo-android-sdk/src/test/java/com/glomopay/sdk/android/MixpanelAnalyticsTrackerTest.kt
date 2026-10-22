@@ -107,6 +107,22 @@ class MixpanelAnalyticsTrackerTest {
     }
 
     @Test
+    fun checkout_url_is_tracked_without_its_query_string() {
+        val events = mutableListOf<AnalyticsEvent>()
+        val sessionId = UUID.randomUUID().toString()
+        val config = GlomoPayConfig(publicKey = "test_public_key", orderId = "order_123")
+        val tracker = tracker(config, sessionId) { events += it }
+
+        tracker.updateCheckoutUrl(ConfigManager.getCheckoutUrl(config, "lrs", sessionId))
+        tracker.track("Checkout Started")
+
+        val checkoutUrl = events.single().properties["checkout_url"] as String
+        assertEquals("https://lrs-checkout.glomopay.com/", checkoutUrl)
+        assertEquals(null, URI(checkoutUrl).rawQuery)
+        assertFalse(checkoutUrl.contains("journeyId"))
+    }
+
+    @Test
     fun insert_id_is_unique_per_event() {
         val events = mutableListOf<AnalyticsEvent>()
         val tracker = tracker(GlomoPayConfig(publicKey = "test_public_key", orderId = "order_123")) { events += it }

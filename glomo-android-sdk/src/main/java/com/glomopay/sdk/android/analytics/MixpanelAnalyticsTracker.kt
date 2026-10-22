@@ -47,7 +47,7 @@ internal class MixpanelAnalyticsTracker(
     }
 
     override fun updateCheckoutUrl(url: String) {
-        checkoutUrl = url
+        checkoutUrl = AnalyticsSanitizer.navigationUrl(url)
     }
 
     override fun track(event: String, properties: Map<String, Any?>) {
