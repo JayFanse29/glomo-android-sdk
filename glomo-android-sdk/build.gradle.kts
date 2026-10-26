@@ -15,8 +15,6 @@ val mixpanelStagingToken = providers.gradleProperty("MIXPANEL_TOKEN_STAGING")
     .orElse("")
 val mixpanelProdToken = providers.gradleProperty("MIXPANEL_TOKEN_PROD")
     .orElse(providers.environmentVariable("MIXPANEL_TOKEN_PROD"))
-    .orElse(providers.gradleProperty("MIXPANEL_TOKEN"))
-    .orElse(providers.environmentVariable("MIXPANEL_TOKEN"))
     .orElse("")
 val sentryDsn = providers.gradleProperty("SENTRY_DSN")
     .orElse(providers.environmentVariable("SENTRY_DSN"))
@@ -99,6 +97,23 @@ val bridgeContractTest by tasks.registering(Exec::class) {
 tasks.named("check") {
     dependsOn(bridgeContractTest)
 }
+
+val verifyReleaseMixpanelToken by tasks.registering {
+    group = "verification"
+    description = "Fails release packaging and publishing when MIXPANEL_TOKEN_PROD is not set."
+    val token = mixpanelProdToken
+    doLast {
+        if (token.get().isBlank()) {
+            throw GradleException(
+                "Release builds require MIXPANEL_TOKEN_PROD. Set it as a Gradle property " +
+                    "(-PMIXPANEL_TOKEN_PROD=...) or an environment variable.",
+            )
+        }
+    }
+}
+
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleReleaseAar" || it.name.startsWith("publish") }
+    .configureEach { dependsOn(verifyReleaseMixpanelToken) }
 
 // Internal builds have distinct coordinates and cannot replace the merchant artifact.
 if (providers.gradleProperty("GLOMO_INTERNAL_BUILD")

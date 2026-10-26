@@ -61,6 +61,13 @@ class AnalyticsSanitizerTest {
     }
 
     @Test
+    fun identifier_values_are_capped_at_the_max_string_length() {
+        val sanitized = AnalyticsSanitizer.properties(mapOf("order_id" to "o".repeat(2_000)))
+
+        assertEquals("o".repeat(AnalyticsSanitizer.MAX_STRING_LENGTH), sanitized["order_id"])
+    }
+
+    @Test
     fun identifier_allowlist_does_not_exempt_other_keys() {
         val sanitized = AnalyticsSanitizer.properties(mapOf(
             "journey_id" to "01d245ac-f936-4545-9013-6a1b2c3d4e5f",

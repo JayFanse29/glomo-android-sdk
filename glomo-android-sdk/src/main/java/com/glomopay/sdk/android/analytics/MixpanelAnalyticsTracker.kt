@@ -1,6 +1,7 @@
 package com.glomopay.sdk.android.analytics
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import com.glomopay.sdk.android.ConfigManager
 import com.glomopay.sdk.android.GlomoPayConfig
 import com.glomopay.sdk.android.R
@@ -152,6 +153,9 @@ internal object MixpanelEventEncoder {
 }
 
 internal object AnalyticsFactory {
+    @VisibleForTesting
+    internal var trackerFactory: ((sessionId: String, flowType: String) -> AnalyticsTracker)? = null
+
     fun create(
         context: Context,
         config: GlomoPayConfig,
@@ -159,6 +163,7 @@ internal object AnalyticsFactory {
         flowType: String,
         errorReporter: SdkErrorReporter,
     ): AnalyticsTracker {
+        trackerFactory?.let { return it(sessionId, flowType) }
         val token = context.getString(R.string.glomopay_mixpanel_token)
         if (token.isBlank()) return NoOpAnalyticsTracker
         return MixpanelAnalyticsTracker(

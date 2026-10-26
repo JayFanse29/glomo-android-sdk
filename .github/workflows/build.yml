@@ -34,7 +34,7 @@ jobs:
           ./gradlew \
             :glomo-android-sdk:check \
             :glomo-android-sdk:apiCheck \
-            :glomo-android-sdk:assemble \
+            :glomo-android-sdk:assembleDebug \
             :sample-app:testDebugUnitTest \
             :sample-app:assembleDebug \
             --no-daemon
