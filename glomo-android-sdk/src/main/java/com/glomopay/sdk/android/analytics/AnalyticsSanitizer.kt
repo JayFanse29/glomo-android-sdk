@@ -10,12 +10,22 @@ internal object AnalyticsSanitizer {
     private val voterId = Regex("(?<![A-Za-z0-9_])[A-Z]{3}[0-9]{7}(?![A-Za-z0-9_])", RegexOption.IGNORE_CASE)
     private val blockedKeys = Regex("(email|phone|mobile|customer_name|card|pan|account|aadhaar|passport|voter|kyc)", RegexOption.IGNORE_CASE)
     private val isoTimestamp = Regex("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}(?:Z|[+-]\\d{2}:\\d{2})")
+    private val identifierKeys = setOf(
+        "journey_id",
+        "session_id",
+        "\$device_id",
+        "\$insert_id",
+        "distinct_id",
+        "order_id",
+        "subscription_id",
+    )
 
     fun properties(input: Map<String, Any?>): Map<String, Any?> = buildMap {
         input.forEach { (key, value) ->
             if (!blockedKeys.containsMatchIn(key)) {
                 when {
                     value == null -> put(key, null)
+                    key in identifierKeys && value is String -> put(key, value.take(MAX_STRING_LENGTH))
                     key == "timestamp" && value is String && isoTimestamp.matches(value) -> put(key, value)
                     else -> sanitizeValue(value)?.let { put(key, it) }
                 }
@@ -55,5 +65,5 @@ internal object AnalyticsSanitizer {
         }
     }
 
-    private const val MAX_STRING_LENGTH = 1_000
+    internal const val MAX_STRING_LENGTH = 1_000
 }

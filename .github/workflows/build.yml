@@ -37,4 +37,5 @@ jobs:
             :glomo-android-sdk:assemble \
             :sample-app:testDebugUnitTest \
             :sample-app:assembleDebug \
+            -PMIXPANEL_TOKEN_PROD=ci-placeholder \
             --no-daemon

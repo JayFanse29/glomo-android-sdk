@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
@@ -10,9 +12,15 @@ kotlin {
 group = "com.glomopay"
 version = "2.0.0"
 
-val mixpanelToken = providers.gradleProperty("MIXPANEL_TOKEN")
-    .orElse(providers.environmentVariable("MIXPANEL_TOKEN"))
+val mixpanelStagingToken = providers.gradleProperty("MIXPANEL_TOKEN_STAGING")
+    .orElse(providers.environmentVariable("MIXPANEL_TOKEN_STAGING"))
     .orElse("")
+val mixpanelProdToken = providers.gradleProperty("MIXPANEL_TOKEN_PROD")
+    .orElse(providers.environmentVariable("MIXPANEL_TOKEN_PROD"))
+    .orElse("")
+val mixpanelProdTokenSha256 =
+    "197f62175134727d6859669dabb3d68cf66df65f6c1342aea5683540b73b452a"
+val mixpanelCiPlaceholderToken = "ci-placeholder"
 val sentryDsn = providers.gradleProperty("SENTRY_DSN")
     .orElse(providers.environmentVariable("SENTRY_DSN"))
     .orElse("")
@@ -38,8 +46,20 @@ android {
             .map { (it == "true").toString() }.orElse("false").get())
         consumerProguardFiles("consumer-rules.pro")
         resValue("string", "glomopay_sdk_version", project.version.toString())
-        resValue("string", "glomopay_mixpanel_token", mixpanelToken.get())
         resValue("string", "glomopay_sentry_dsn", sentryDsn.get())
+    }
+
+    buildTypes {
+        debug {
+            resValue("string", "glomopay_mixpanel_token", mixpanelStagingToken.get())
+        }
+        release {
+            resValue(
+                "string",
+                "glomopay_mixpanel_token",
+                mixpanelProdToken.get().takeUnless { it == mixpanelCiPlaceholderToken }.orEmpty(),
+            )
+        }
     }
 
     compileOptions {
@@ -53,6 +73,10 @@ android {
 
     buildFeatures {
         buildConfig = true
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 
 }
@@ -83,6 +107,42 @@ tasks.named("check") {
     dependsOn(bridgeContractTest)
 }
 
+val verifyReleaseMixpanelToken by tasks.registering {
+    group = "verification"
+    description = "Fails release packaging and publishing unless MIXPANEL_TOKEN_PROD is the prod token " +
+        "or the CI-only placeholder."
+    val prodToken = mixpanelProdToken
+    val stagingToken = mixpanelStagingToken
+    val expectedSha256 = mixpanelProdTokenSha256
+    val ciPlaceholder = mixpanelCiPlaceholderToken
+    doLast {
+        val token = prodToken.get()
+        if (token.isBlank()) {
+            throw GradleException(
+                "Release builds require MIXPANEL_TOKEN_PROD. Set it as a Gradle property " +
+                    "(-PMIXPANEL_TOKEN_PROD=...) or an environment variable.",
+            )
+        }
+        if (token == ciPlaceholder) return@doLast
+        if (token == stagingToken.get()) {
+            throw GradleException("MIXPANEL_TOKEN_PROD equals MIXPANEL_TOKEN_STAGING. Release builds need the prod token.")
+        }
+        val sha256 = MessageDigest.getInstance("SHA-256")
+            .digest(token.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        if (sha256 != expectedSha256) {
+            throw GradleException(
+                "MIXPANEL_TOKEN_PROD does not match the expected prod fingerprint. If the prod token was " +
+                    "rotated on purpose, update mixpanelProdTokenSha256 in glomo-android-sdk/build.gradle.kts.",
+            )
+        }
+    }
+}
+
+tasks.matching {
+    it.name == "assembleRelease" || it.name == "bundleReleaseAar" || it.name.startsWith("publish")
+}.configureEach { dependsOn(verifyReleaseMixpanelToken) }
+
 // Internal builds have distinct coordinates and cannot replace the merchant artifact.
 if (providers.gradleProperty("GLOMO_INTERNAL_BUILD")
         .orElse(providers.environmentVariable("GLOMO_INTERNAL_BUILD")).orNull == "true") {
@@ -98,4 +158,5 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.0.21")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:2.0.21")
     testImplementation("org.json:json:20240303")
+    testImplementation("org.robolectric:robolectric:4.14.1")
 }

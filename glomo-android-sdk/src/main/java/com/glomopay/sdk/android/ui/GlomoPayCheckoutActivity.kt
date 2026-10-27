@@ -411,7 +411,7 @@ public class GlomoPayCheckoutActivity : Activity() {
     private fun openCheckout(orderType: String) {
         currentOrderType = orderType.lowercase()
         prepareEducationCarousel(currentOrderType)
-        val url = ConfigManager.getCheckoutUrl(config, currentOrderType, resolvedColorScheme)
+        val url = ConfigManager.getCheckoutUrl(config, currentOrderType, resolvedColorScheme, sessionId)
         analytics.updateFlowType(currentOrderType)
         errorReporter.updateFlowType(currentOrderType)
         analytics.updateCheckoutUrl(url)
@@ -800,9 +800,12 @@ public class GlomoPayCheckoutActivity : Activity() {
         prepareEducationCarousel(currentOrderType)
         // Replayed with the scheme refreshed where possible, rebuilt only as a fallback - see
         // retryCheckoutUrl for why, and for the test that pins it.
-        val retryUrl = retryCheckoutUrl(currentUrl, loadedCheckoutUrl, resolvedColorScheme) {
-            ConfigManager.getCheckoutUrl(config, currentOrderType, resolvedColorScheme)
-        }
+        val retryUrl = ConfigManager.withJourneyId(
+            retryCheckoutUrl(currentUrl, loadedCheckoutUrl, resolvedColorScheme) {
+                ConfigManager.getCheckoutUrl(config, currentOrderType, resolvedColorScheme, sessionId)
+            },
+            sessionId,
+        )
         loadedCheckoutUrl = retryUrl
         installMainDocumentStartInjection(retryUrl)
         webView.loadUrl(retryUrl)

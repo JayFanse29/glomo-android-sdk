@@ -1,6 +1,7 @@
 package com.glomopay.sdk.android.analytics
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import com.glomopay.sdk.android.ConfigManager
 import com.glomopay.sdk.android.GlomoPayConfig
 import com.glomopay.sdk.android.R
@@ -14,6 +15,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
@@ -46,13 +48,13 @@ internal class MixpanelAnalyticsTracker(
     }
 
     override fun updateCheckoutUrl(url: String) {
-        checkoutUrl = url
+        checkoutUrl = AnalyticsSanitizer.navigationUrl(url)
     }
 
     override fun track(event: String, properties: Map<String, Any?>) {
         errorReporter.addBreadcrumb("analytics", event, mapOf("event_name" to event))
         val now = clock()
-        val eventProperties = commonProperties(now) + properties
+        val eventProperties = properties + commonProperties(now)
         val analyticsEvent = AnalyticsEvent(event, AnalyticsSanitizer.properties(eventProperties))
         executor.execute {
             runCatching { transport.send(analyticsEvent) }
@@ -83,8 +85,10 @@ internal class MixpanelAnalyticsTracker(
         put("time", now)
         put("timestamp", isoTimestamp(now))
         put("session_id", sessionId)
-        put("\$insert_id", sessionId)
-        put("distinct_id", config.orderId)
+        put("journey_id", sessionId)
+        put("\$device_id", sessionId)
+        put("\$insert_id", UUID.randomUUID().toString())
+        put("distinct_id", "\$device:$sessionId")
     }
 
     private fun isoTimestamp(timeMillis: Long): String = synchronized(timestampFormatter) {
@@ -149,6 +153,9 @@ internal object MixpanelEventEncoder {
 }
 
 internal object AnalyticsFactory {
+    @VisibleForTesting
+    internal var trackerFactory: ((sessionId: String, flowType: String) -> AnalyticsTracker)? = null
+
     fun create(
         context: Context,
         config: GlomoPayConfig,
@@ -156,6 +163,7 @@ internal object AnalyticsFactory {
         flowType: String,
         errorReporter: SdkErrorReporter,
     ): AnalyticsTracker {
+        trackerFactory?.let { return it(sessionId, flowType) }
         val token = context.getString(R.string.glomopay_mixpanel_token)
         if (token.isBlank()) return NoOpAnalyticsTracker
         return MixpanelAnalyticsTracker(

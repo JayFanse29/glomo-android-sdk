@@ -19,7 +19,7 @@ public object ConfigManager {
     }
 
     public fun getCheckoutUrl(config: GlomoPayConfig, orderType: String = "standard"): String =
-        getCheckoutUrl(config, orderType, colorScheme = null)
+        getCheckoutUrl(config, orderType, colorScheme = null, journeyId = null)
 
     /**
      * [colorScheme] is the already-resolved scheme; `AUTO` never reaches here. Omitted when null,
@@ -34,6 +34,7 @@ public object ConfigManager {
         config: GlomoPayConfig,
         orderType: String,
         colorScheme: ResolvedColorScheme?,
+        journeyId: String? = null,
     ): String {
         val checkoutId = config.checkoutId ?: ""
         return withQuery(
@@ -46,6 +47,7 @@ public object ConfigManager {
                 // wire is `colorScheme`, the page hook is `glomoSetColorScheme`. The README says
                 // so, so nobody assumes the wire was renamed with the property.
                 if (colorScheme != null) add("colorScheme" to colorScheme.wireName)
+                journeyId?.takeIf(String::isNotBlank)?.let { add("journeyId" to it) }
             },
         )
     }
@@ -107,6 +109,18 @@ public object ConfigManager {
         val withoutFragment = if (fragmentStart >= 0) baseUrl.substring(0, fragmentStart) else baseUrl
         val withoutQuery = withoutFragment.substringBefore('?')
         return "$withoutQuery?$query$fragment"
+    }
+
+    internal fun withJourneyId(url: String, journeyId: String?): String {
+        if (journeyId.isNullOrBlank()) return url
+        val fragmentStart = url.indexOf('#')
+        val fragment = if (fragmentStart >= 0) url.substring(fragmentStart) else ""
+        val withoutFragment = if (fragmentStart >= 0) url.substring(0, fragmentStart) else url
+        val parameters = withoutFragment.substringAfter('?', "")
+            .split('&')
+            .filter { it.isNotEmpty() && it.substringBefore('=') != "journeyId" }
+        val query = (parameters + "journeyId=${encode(journeyId)}").joinToString("&")
+        return "${withoutFragment.substringBefore('?')}?$query$fragment"
     }
 
     private fun encode(value: String): String =

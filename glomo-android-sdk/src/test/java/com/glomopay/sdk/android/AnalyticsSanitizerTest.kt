@@ -1,6 +1,7 @@
 package com.glomopay.sdk.android
 
 import com.glomopay.sdk.android.analytics.AnalyticsSanitizer
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -41,6 +42,40 @@ class AnalyticsSanitizerTest {
             sanitized["message"],
         )
         assertFalse(sanitized.containsKey("customer_email"))
+    }
+
+    @Test
+    fun random_uuid_identifiers_pass_through_unchanged() {
+        repeat(1_000) {
+            val id = UUID.randomUUID().toString()
+            val input = mapOf(
+                "journey_id" to id,
+                "\$device_id" to id,
+                "distinct_id" to "\$device:$id",
+                "session_id" to id,
+                "\$insert_id" to UUID.randomUUID().toString(),
+            )
+
+            assertEquals(input, AnalyticsSanitizer.properties(input))
+        }
+    }
+
+    @Test
+    fun identifier_values_are_capped_at_the_max_string_length() {
+        val sanitized = AnalyticsSanitizer.properties(mapOf("order_id" to "o".repeat(2_000)))
+
+        assertEquals("o".repeat(AnalyticsSanitizer.MAX_STRING_LENGTH), sanitized["order_id"])
+    }
+
+    @Test
+    fun identifier_allowlist_does_not_exempt_other_keys() {
+        val sanitized = AnalyticsSanitizer.properties(mapOf(
+            "journey_id" to "01d245ac-f936-4545-9013-6a1b2c3d4e5f",
+            "message" to "01d245ac-f936-4545-9013-6a1b2c3d4e5f",
+        ))
+
+        assertEquals("01d245ac-f936-4545-9013-6a1b2c3d4e5f", sanitized["journey_id"])
+        assertEquals("01d245ac-f936-[REDACTED]-6a1b2c3d4e5f", sanitized["message"])
     }
 
     @Test

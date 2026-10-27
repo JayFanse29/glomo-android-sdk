@@ -56,6 +56,46 @@ class ConfigManagerTest {
     }
 
     @Test
+    fun checkout_url_appends_journey_id_after_mode() {
+        val config = GlomoPayConfig("test_key", orderId = "order_1")
+        val url = ConfigManager.getCheckoutUrl(config, "lrs", colorScheme = null, journeyId = "0f8e6c1a-2b3d-4e5f-8a9b-0c1d2e3f4a5b")
+
+        assertEquals(
+            "https://lrs-checkout.glomopay.com/?orderId=order_1&publicKey=test_key&mode=mock" +
+                "&journeyId=0f8e6c1a-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
+            url,
+        )
+    }
+
+    @Test
+    fun checkout_url_omits_journey_id_when_absent_or_blank() {
+        val config = GlomoPayConfig("test_key", orderId = "order_1")
+
+        assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config)), "journeyId"))
+        assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config, "standard", colorScheme = null, journeyId = null)), "journeyId"))
+        assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config, "standard", colorScheme = null, journeyId = " ")), "journeyId"))
+    }
+
+    @Test
+    fun with_journey_id_replaces_a_stale_journey_id_and_keeps_the_fragment() {
+        assertEquals(
+            "https://lrs-checkout.glomopay.com/review?orderId=order_1&step=2&journeyId=journey-1#top",
+            ConfigManager.withJourneyId(
+                "https://lrs-checkout.glomopay.com/review?orderId=order_1&journeyId=stale&step=2#top",
+                "journey-1",
+            ),
+        )
+    }
+
+    @Test
+    fun with_journey_id_leaves_the_url_unchanged_when_the_id_is_absent_or_blank() {
+        val url = "https://lrs-checkout.glomopay.com/review?orderId=order_1#top"
+
+        assertEquals(url, ConfigManager.withJourneyId(url, null))
+        assertEquals(url, ConfigManager.withJourneyId(url, " "))
+    }
+
+    @Test
     fun checkout_document_start_origin_rules_match_the_checkout_host_only() {
         assertEquals(
             setOf("https://checkout.glomopay.com"),

@@ -18,6 +18,7 @@ internal object NoOpAnalyticsTracker : AnalyticsTracker {
 
 internal object AnalyticsEvents {
     const val SDK_INITIALIZED = "SDK Initialized"
+    const val SDK_LOADED = "sdk_loaded"
     const val SDK_VALIDATION_FAILED = "SDK Validation Failed"
     const val DEVICE_COMPLIANCE_CHECKED = "Device Compliance Checked"
     const val DEVICE_COMPLIANCE_BLOCKED = "Device Compliance Blocked"
