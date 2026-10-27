@@ -18,7 +18,8 @@ val mixpanelStagingToken = providers.gradleProperty("MIXPANEL_TOKEN_STAGING")
 val mixpanelProdToken = providers.gradleProperty("MIXPANEL_TOKEN_PROD")
     .orElse(providers.environmentVariable("MIXPANEL_TOKEN_PROD"))
     .orElse("")
-val mixpanelProdTokenSha256 = "197f62175134727d6859669dabb3d68cf66df65f6c1342aea5683540b73b452a"
+val mixpanelProdTokenSha256 =
+    "197f62175134727d6859669dabb3d68cf66df65f6c1342aea5683540b73b452a"
 val mixpanelCiPlaceholderToken = "ci-placeholder"
 val sentryDsn = providers.gradleProperty("SENTRY_DSN")
     .orElse(providers.environmentVariable("SENTRY_DSN"))
