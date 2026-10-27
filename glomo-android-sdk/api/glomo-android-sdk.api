@@ -62,6 +62,15 @@ public final class com/glomopay/sdk/android/ConnectionErrorType : java/lang/Enum
 	public static fun values ()[Lcom/glomopay/sdk/android/ConnectionErrorType;
 }
 
+public final class com/glomopay/sdk/android/GlomoColorScheme : java/lang/Enum {
+	public static final field AUTO Lcom/glomopay/sdk/android/GlomoColorScheme;
+	public static final field DARK Lcom/glomopay/sdk/android/GlomoColorScheme;
+	public static final field LIGHT Lcom/glomopay/sdk/android/GlomoColorScheme;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/glomopay/sdk/android/GlomoColorScheme;
+	public static fun values ()[Lcom/glomopay/sdk/android/GlomoColorScheme;
+}
+
 public final class com/glomopay/sdk/android/GlomoPayApiClient {
 	public fun <init> (Ljava/lang/String;)V
 	public final fun fetchOrder (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
@@ -69,20 +78,32 @@ public final class com/glomopay/sdk/android/GlomoPayApiClient {
 
 public final class com/glomopay/sdk/android/GlomoPayCheckoutHandle {
 	public final fun close ()V
+	public final fun setAppColorScheme (Lcom/glomopay/sdk/android/GlomoColorScheme;)V
 }
 
 public final class com/glomopay/sdk/android/GlomoPayConfig {
+	public fun <init> (Ljava/lang/String;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/glomopay/sdk/android/GlomoColorScheme;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/glomopay/sdk/android/GlomoColorScheme;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
 	public final fun component4 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/glomopay/sdk/android/GlomoPayConfig;
-	public static synthetic fun copy$default (Lcom/glomopay/sdk/android/GlomoPayConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/glomopay/sdk/android/GlomoPayConfig;
+	public final fun component5 ()Lcom/glomopay/sdk/android/GlomoColorScheme;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/glomopay/sdk/android/GlomoColorScheme;)Lcom/glomopay/sdk/android/GlomoPayConfig;
+	public static synthetic fun copy$default (Lcom/glomopay/sdk/android/GlomoPayConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/glomopay/sdk/android/GlomoColorScheme;ILjava/lang/Object;)Lcom/glomopay/sdk/android/GlomoPayConfig;
+	public final fun copyWith ()Lcom/glomopay/sdk/android/GlomoPayConfig;
+	public final fun copyWith (Ljava/lang/String;)Lcom/glomopay/sdk/android/GlomoPayConfig;
+	public final fun copyWith (Ljava/lang/String;Ljava/lang/String;)Lcom/glomopay/sdk/android/GlomoPayConfig;
+	public final fun copyWith (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/glomopay/sdk/android/GlomoPayConfig;
 	public final fun copyWith (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/glomopay/sdk/android/GlomoPayConfig;
-	public static synthetic fun copyWith$default (Lcom/glomopay/sdk/android/GlomoPayConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/glomopay/sdk/android/GlomoPayConfig;
+	public final fun copyWith (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/glomopay/sdk/android/GlomoColorScheme;)Lcom/glomopay/sdk/android/GlomoPayConfig;
+	public static synthetic fun copyWith$default (Lcom/glomopay/sdk/android/GlomoPayConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/glomopay/sdk/android/GlomoColorScheme;ILjava/lang/Object;)Lcom/glomopay/sdk/android/GlomoPayConfig;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAppColorScheme ()Lcom/glomopay/sdk/android/GlomoColorScheme;
 	public final fun getCheckoutId ()Ljava/lang/String;
 	public final fun getOrderId ()Ljava/lang/String;
 	public final fun getPublicKey ()Ljava/lang/String;
@@ -274,6 +295,8 @@ public final class com/glomopay/sdk/android/state/CheckoutUiState$LoadingProgres
 
 public final class com/glomopay/sdk/android/ui/GlomoPayCheckoutActivity : android/app/Activity {
 	public static final field Companion Lcom/glomopay/sdk/android/ui/GlomoPayCheckoutActivity$Companion;
+	public static final field EXTRA_APP_COLOR_SCHEME Ljava/lang/String;
+	public static final field EXTRA_HOST_THEME_IS_LIGHT Ljava/lang/String;
 	public static final field EXTRA_ORDER_ID Ljava/lang/String;
 	public static final field EXTRA_ORDER_TYPE Ljava/lang/String;
 	public static final field EXTRA_PUBLIC_KEY Ljava/lang/String;
@@ -282,6 +305,7 @@ public final class com/glomopay/sdk/android/ui/GlomoPayCheckoutActivity : androi
 	public static final field EXTRA_SUBSCRIPTION_ID Ljava/lang/String;
 	public fun <init> ()V
 	public fun onBackPressed ()V
+	public fun onConfigurationChanged (Landroid/content/res/Configuration;)V
 	public fun onRequestPermissionsResult (I[Ljava/lang/String;[I)V
 }
 

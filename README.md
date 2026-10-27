@@ -125,6 +125,7 @@ val config = GlomoPayConfig(
     publicKey = "test_public_key",
     orderId = "order_example",
     server = null,
+    appColorScheme = GlomoColorScheme.AUTO, // AUTO | LIGHT | DARK
 )
 ```
 
@@ -148,7 +149,69 @@ Remote WebView debugging is controlled by the embedding application.
 
 The checkout Activity declares `configChanges` for UI mode, locale, layout
 direction, font scale, density, keyboard and size changes, so a dark-mode toggle,
-locale change or multi-window resize does not restart a live payment.
+locale change or multi-window resize does not restart a live payment. The SDK
+owns that Activity, so this needs nothing from the host - unlike the React Native
+and Flutter SDKs, which run inside the merchant's own Activity.
+
+### Dark mode
+
+`appColorScheme` tells the Glomo checkout page which scheme to present. It
+defaults to `GlomoColorScheme.AUTO`.
+
+**It requests a scheme, it does not force one.** The page decides, against your
+merchant dashboard settings. Setting `DARK` does not guarantee a dark checkout.
+
+**What `AUTO` resolves to here.** Your app's own appearance, from the most
+specific source that can answer:
+
+1. `AppCompatDelegate.getDefaultNightMode()`, if you have set one.
+2. Otherwise your theme's `isLightTheme`, read from the context you launch the
+   checkout with.
+3. Otherwise the device configuration.
+
+Step 2 is what makes a light-only app on a dark device get a light checkout. It
+is needed because `MODE_NIGHT_FOLLOW_SYSTEM` is the *default* return of step 1,
+so an app that has never called `setDefaultNightMode` is indistinguishable there
+from one that asked to follow the system.
+
+Step 2 is read **once, when you launch the checkout**, against the context you
+launch it with. A `DayNight` theme therefore gets the right answer at launch, but
+a device light/dark toggle *while the checkout is open* is not followed: step 2
+has already answered, so the new device configuration never reaches step 3. If
+you need an open checkout to move, drive it yourself with
+`setAppColorScheme(LIGHT)` or `setAppColorScheme(DARK)` from your own
+configuration callback. Hosts that set a night mode through
+`AppCompatDelegate` are unaffected, because step 1 is re-read on every change.
+
+If your theme defines no `isLightTheme` - unusual, but possible with a custom
+theme that does not inherit from a platform or Material parent - the SDK falls
+through to the device. What `AUTO` derives from is a per-platform decision and
+differs across the Glomo SDKs; only `LIGHT` and `DARK` mean the same thing
+everywhere.
+
+**Changing it mid-checkout is supported**, through the handle:
+
+```kotlin
+val handle = GlomoPaySdk.startCheckout(context, config, listener)
+// later, without closing or restarting the checkout
+handle.setAppColorScheme(GlomoColorScheme.DARK)
+```
+
+The page is told through the bridge rather than by reloading it, so a payment in
+flight survives the change. Do not close and restart the checkout to change the
+scheme. A host night-mode change reaches the open checkout on its own while the
+scheme is `AUTO`; nothing is needed from the host for that.
+
+**Three names, one concept.** The property is `appColorScheme`, the URL parameter
+the page reads is `colorScheme`, and the page hook the SDK calls is
+`window.glomoSetColorScheme`. The wire names were not renamed along with the
+property.
+
+Android's algorithmic darkening is switched off on every WebView the SDK renders,
+including bank and 3DS pages - the platform must not invert a page that handles
+its own colours, and a bank's page is not ours to recolour either. Both the modern
+`setAlgorithmicDarkeningAllowed` and the legacy `setForceDark` are set, since the
+first is ignored by hosts targeting SDK 32 and below.
 
 After Activity recreation, checkout ends instead of replaying an interrupted
 payment page. If the process is still alive, the listener receives an SDK error;

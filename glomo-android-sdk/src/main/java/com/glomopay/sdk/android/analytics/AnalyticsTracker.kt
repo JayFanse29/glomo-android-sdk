@@ -59,4 +59,10 @@ internal object AnalyticsEvents {
     const val DEVICE_PERMISSION_REFUSED = "Device Permission Refused"
     const val CONSOLE_LOG_CAPTURED = "Console Log Captured"
     const val UNSUPPORTED_FUNCTIONALITY_USED = "Unsupported Functionality Used"
+
+    /**
+     * The colour scheme changed during a live checkout and was pushed to the pages. Not emitted
+     * for the scheme the checkout opened with.
+     */
+    const val COLOR_SCHEME_CHANGED = "Checkout Color Scheme Changed"
 }
