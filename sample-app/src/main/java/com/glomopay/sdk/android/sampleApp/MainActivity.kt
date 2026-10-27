@@ -14,7 +14,10 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatDelegate
 import com.glomopay.sdk.android.ConnectionError
+import com.glomopay.sdk.android.GlomoColorScheme
+import com.glomopay.sdk.android.GlomoPayCheckoutHandle
 import com.glomopay.sdk.android.GlomoPayConfig
 import com.glomopay.sdk.android.GlomoPayListener
 import com.glomopay.sdk.android.GlomoPayPayload
@@ -35,6 +38,11 @@ class MainActivity : Activity(), GlomoPayListener {
     private lateinit var identifierInput: EditText
     private lateinit var statusLabel: TextView
     private lateinit var eventLog: TextView
+
+    private var appColorScheme = GlomoColorScheme.AUTO
+
+    /** Kept so the scheme picker can reach a checkout that is already on screen. */
+    private var checkoutHandle: GlomoPayCheckoutHandle? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,6 +85,49 @@ class MainActivity : Activity(), GlomoPayListener {
         identifierInput = field("Order ID / Subscription ID", "Enter order ID or subscription ID")
         content.addView(labeledField("Public Key", publicKeyInput), fieldGroupParams())
         content.addView(labeledField("Order ID / Subscription ID", identifierInput), fieldGroupParams())
+
+        content.addView(
+            segmentedRow(
+                "SDK Checkout colour scheme",
+                listOf(
+                    "Auto" to GlomoColorScheme.AUTO,
+                    "Light" to GlomoColorScheme.LIGHT,
+                    "Dark" to GlomoColorScheme.DARK,
+                ),
+                appColorScheme,
+            ) { scheme ->
+                appColorScheme = scheme
+                // Reaches a checkout that is already open; dropped when there is none. That is
+                // what makes this the live-push path rather than a second way to set the config.
+                checkoutHandle?.setAppColorScheme(scheme)
+                appendEvent("appColorScheme=$scheme")
+            },
+            fieldGroupParams(),
+        )
+
+        content.addView(
+            segmentedRow(
+                "Host App's night mode (Android X)",
+                listOf(
+                    "System" to AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+                    "Light" to AppCompatDelegate.MODE_NIGHT_NO,
+                    "Dark" to AppCompatDelegate.MODE_NIGHT_YES,
+                ),
+                // Normalised to System: before a host sets one the delegate reports
+                // MODE_NIGHT_UNSPECIFIED, which matches no button and leaves the row blank.
+                // AUTO_BATTERY collapses here too - the SDK reads both as "host has not chosen".
+                when (val mode = AppCompatDelegate.getDefaultNightMode()) {
+                    AppCompatDelegate.MODE_NIGHT_NO, AppCompatDelegate.MODE_NIGHT_YES -> mode
+                    else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                },
+            ) { mode ->
+                // The first source AUTO consults. This screen is a plain Activity, so it does not
+                // restyle itself - the point is only to move what the SDK reads.
+                AppCompatDelegate.setDefaultNightMode(mode)
+                appendEvent("defaultNightMode=$mode")
+            },
+            fieldGroupParams(),
+        )
 
         content.addView(Button(this).apply {
             text = "START CHECKOUT"
@@ -134,12 +185,12 @@ class MainActivity : Activity(), GlomoPayListener {
             return
         }
 
-        val state = CheckoutFormState(publicKey, identifier)
+        val state = CheckoutFormState(publicKey, identifier, appColorScheme)
         try {
             val config: GlomoPayConfig = state.toConfig()
             statusLabel.text = "Status: Starting"
-            appendEvent("startCheckout type=auto (API detected)")
-            GlomoPaySdk.startCheckout(this, config, this, "auto")
+            appendEvent("startCheckout type=auto (API detected) colorScheme=$appColorScheme")
+            checkoutHandle = GlomoPaySdk.startCheckout(this, config, this, "auto")
         } catch (error: IllegalArgumentException) {
             statusLabel.text = "Status: Validation error"
             toast(error.message ?: "Invalid checkout form")
@@ -206,6 +257,59 @@ class MainActivity : Activity(), GlomoPayListener {
             setPadding(dp(4), 0, 0, dp(5))
         })
         addView(input, LinearLayout.LayoutParams(-1, dp(56)))
+    }
+
+    /**
+     * A labelled row of mutually exclusive buttons.
+     *
+     * [initial] is read once; the row owns the selection from then on, so a caller that also keeps
+     * the value has to update it in [onSelect].
+     */
+    private fun <T> segmentedRow(
+        label: String,
+        options: List<Pair<String, T>>,
+        initial: T,
+        onSelect: (T) -> Unit,
+    ): View {
+        val buttons = mutableListOf<Pair<Button, T>>()
+        var current = initial
+
+        fun repaint() = buttons.forEach { (button, value) ->
+            val active = value == current
+            button.background = rounded(if (active) purple else Color.WHITE, 20, lavender)
+            button.setTextColor(if (active) Color.WHITE else ink)
+        }
+
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        options.forEach { (title, value) ->
+            val button = Button(this).apply {
+                text = title
+                textSize = 13f
+                isAllCaps = false
+                contentDescription = "$label $title"
+                setOnClickListener {
+                    current = value
+                    repaint()
+                    onSelect(value)
+                }
+            }
+            buttons += button to value
+            row.addView(button, LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+                marginStart = if (buttons.size == 1) 0 else dp(8)
+            })
+        }
+        repaint()
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(TextView(this@MainActivity).apply {
+                text = label
+                textSize = 13f
+                setTextColor(ink)
+                setPadding(dp(4), 0, 0, dp(5))
+            })
+            addView(row)
+        }
     }
 
     private fun fieldGroupParams() = LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT).apply {

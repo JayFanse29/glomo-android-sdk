@@ -58,7 +58,7 @@ class ConfigManagerTest {
     @Test
     fun checkout_url_appends_journey_id_after_mode() {
         val config = GlomoPayConfig("test_key", orderId = "order_1")
-        val url = ConfigManager.getCheckoutUrl(config, "lrs", "0f8e6c1a-2b3d-4e5f-8a9b-0c1d2e3f4a5b")
+        val url = ConfigManager.getCheckoutUrl(config, "lrs", colorScheme = null, journeyId = "0f8e6c1a-2b3d-4e5f-8a9b-0c1d2e3f4a5b")
 
         assertEquals(
             "https://lrs-checkout.glomopay.com/?orderId=order_1&publicKey=test_key&mode=mock" +
@@ -72,33 +72,27 @@ class ConfigManagerTest {
         val config = GlomoPayConfig("test_key", orderId = "order_1")
 
         assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config)), "journeyId"))
-        assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config, "standard", null)), "journeyId"))
-        assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config, "standard", " ")), "journeyId"))
+        assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config, "standard", colorScheme = null, journeyId = null)), "journeyId"))
+        assertEquals(null, query(URI(ConfigManager.getCheckoutUrl(config, "standard", colorScheme = null, journeyId = " ")), "journeyId"))
     }
 
     @Test
-    fun retry_url_replaces_the_journey_id_on_a_checkout_origin_url() {
-        val config = GlomoPayConfig("test_key", orderId = "order_1")
-
+    fun with_journey_id_replaces_a_stale_journey_id_and_keeps_the_fragment() {
         assertEquals(
             "https://lrs-checkout.glomopay.com/review?orderId=order_1&step=2&journeyId=journey-1#top",
-            ConfigManager.getRetryUrl(
-                config,
-                "lrs",
-                "journey-1",
+            ConfigManager.withJourneyId(
                 "https://lrs-checkout.glomopay.com/review?orderId=order_1&journeyId=stale&step=2#top",
+                "journey-1",
             ),
         )
     }
 
     @Test
-    fun retry_url_rebuilds_the_checkout_url_off_the_checkout_origin_or_without_a_last_url() {
-        val config = GlomoPayConfig("test_key", orderId = "order_1")
-        val checkoutUrl = ConfigManager.getCheckoutUrl(config, "lrs", "journey-1")
+    fun with_journey_id_leaves_the_url_unchanged_when_the_id_is_absent_or_blank() {
+        val url = "https://lrs-checkout.glomopay.com/review?orderId=order_1#top"
 
-        assertEquals(checkoutUrl, ConfigManager.getRetryUrl(config, "lrs", "journey-1", "https://bank.example/acs?t=1"))
-        assertEquals(checkoutUrl, ConfigManager.getRetryUrl(config, "lrs", "journey-1", "about:blank"))
-        assertEquals(checkoutUrl, ConfigManager.getRetryUrl(config, "lrs", "journey-1", null))
+        assertEquals(url, ConfigManager.withJourneyId(url, null))
+        assertEquals(url, ConfigManager.withJourneyId(url, " "))
     }
 
     @Test

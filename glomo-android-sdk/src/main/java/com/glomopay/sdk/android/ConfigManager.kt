@@ -19,31 +19,37 @@ public object ConfigManager {
     }
 
     public fun getCheckoutUrl(config: GlomoPayConfig, orderType: String = "standard"): String =
-        getCheckoutUrl(config, orderType, journeyId = null)
+        getCheckoutUrl(config, orderType, colorScheme = null, journeyId = null)
 
-    internal fun getCheckoutUrl(config: GlomoPayConfig, orderType: String, journeyId: String?): String {
+    /**
+     * [colorScheme] is the already-resolved scheme; `AUTO` never reaches here. Omitted when null,
+     * which leaves the page on its own default.
+     *
+     * Internal because the resolved type is: resolving needs the activity's configuration, so no
+     * caller outside this SDK is in a position to supply one. A scheme change mid-checkout must
+     * NOT rebuild this URL - a reload destroys the payment. `GlomoPayInjectionScripts.colorScheme`
+     * is the live path.
+     */
+    internal fun getCheckoutUrl(
+        config: GlomoPayConfig,
+        orderType: String,
+        colorScheme: ResolvedColorScheme?,
+        journeyId: String? = null,
+    ): String {
         val checkoutId = config.checkoutId ?: ""
         return withQuery(
             getBaseUrl(config, orderType),
-            listOfNotNull(
-                "orderId" to checkoutId,
-                "publicKey" to config.publicKey,
-                "mode" to getMode(config.publicKey),
-                journeyId?.takeIf(String::isNotBlank)?.let { "journeyId" to it },
-            ),
+            buildList {
+                add("orderId" to checkoutId)
+                add("publicKey" to config.publicKey)
+                add("mode" to getMode(config.publicKey))
+                // Three names for one concept, by design: the property is `appColorScheme`, the
+                // wire is `colorScheme`, the page hook is `glomoSetColorScheme`. The README says
+                // so, so nobody assumes the wire was renamed with the property.
+                if (colorScheme != null) add("colorScheme" to colorScheme.wireName)
+                journeyId?.takeIf(String::isNotBlank)?.let { add("journeyId" to it) }
+            },
         )
-    }
-
-    internal fun getRetryUrl(
-        config: GlomoPayConfig,
-        orderType: String,
-        journeyId: String?,
-        lastUrl: String?,
-    ): String {
-        val checkoutUrl = getCheckoutUrl(config, orderType, journeyId)
-        if (lastUrl == null) return checkoutUrl
-        if (checkoutDocumentStartOriginRules(lastUrl) != checkoutDocumentStartOriginRules(checkoutUrl)) return checkoutUrl
-        return journeyId?.takeIf(String::isNotBlank)?.let { withJourneyId(lastUrl, it) } ?: lastUrl
     }
 
     internal fun getCheckoutDocumentStartOriginRules(
@@ -51,19 +57,32 @@ public object ConfigManager {
         orderType: String = "standard",
     ): Set<String> = checkoutDocumentStartOriginRules(getCheckoutUrl(config, orderType))
 
-    internal fun checkoutDocumentStartOriginRules(url: String): Set<String> {
-        val uri = runCatching { URI(url) }.getOrNull() ?: return emptySet()
+    internal fun checkoutDocumentStartOriginRules(url: String): Set<String> =
+        originOf(url)?.let { setOf(it) } ?: emptySet()
+
+    /** `scheme://host[:port]`, or null for anything that is not an http(s) URL. */
+    internal fun originOf(url: String): String? {
+        val uri = runCatching { URI(url) }.getOrNull() ?: return null
         val scheme = uri.scheme?.lowercase()
-        val host = uri.host?.lowercase() ?: return emptySet()
-        if (scheme != "https" && scheme != "http") return emptySet()
+        val host = uri.host?.lowercase() ?: return null
+        if (scheme != "https" && scheme != "http") return null
         val port = uri.port.takeIf { it >= 0 }?.let { ":$it" } ?: ""
-        return setOf("$scheme://$host$port")
+        return "$scheme://$host$port"
     }
 
-    internal fun getCarouselUrl(config: GlomoPayConfig): String =
+    /** [colorScheme] carries the same resolved value on the same param name - the carousel is on
+     * the same contract as the checkout pages. */
+    internal fun getCarouselUrl(
+        config: GlomoPayConfig,
+        colorScheme: ResolvedColorScheme? = null,
+    ): String =
         withQuery(
             CAROUSEL_BASE_URL,
-            listOf("orderId" to (config.orderId ?: ""), "publicKey" to config.publicKey),
+            buildList {
+                add("orderId" to (config.orderId ?: ""))
+                add("publicKey" to config.publicKey)
+                if (colorScheme != null) add("colorScheme" to colorScheme.wireName)
+            },
         )
 
     public fun getMode(publicKey: String): String = when {
@@ -92,7 +111,8 @@ public object ConfigManager {
         return "$withoutQuery?$query$fragment"
     }
 
-    private fun withJourneyId(url: String, journeyId: String): String {
+    internal fun withJourneyId(url: String, journeyId: String?): String {
+        if (journeyId.isNullOrBlank()) return url
         val fragmentStart = url.indexOf('#')
         val fragment = if (fragmentStart >= 0) url.substring(fragmentStart) else ""
         val withoutFragment = if (fragmentStart >= 0) url.substring(0, fragmentStart) else url

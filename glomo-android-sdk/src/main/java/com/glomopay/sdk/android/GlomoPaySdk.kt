@@ -59,6 +59,21 @@ public class GlomoPayCheckoutHandle internal constructor(private val sessionId: 
             CheckoutSessionRegistry.get(sessionId)?.requestClose()
         }
     }
+
+    /**
+     * Changes the colour scheme of a checkout that is already open.
+     *
+     * The page is told through the bridge, not by reloading it, so a payment in flight survives
+     * the change. Do not close and restart the checkout to change the scheme.
+     *
+     * A request, not a switch: the page decides, against the merchant's dashboard settings. A call
+     * made before the checkout has rendered, or after it has finished, is dropped.
+     */
+    public fun setAppColorScheme(scheme: GlomoColorScheme): Unit {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            CheckoutSessionRegistry.get(sessionId)?.requestAppColorScheme(scheme)
+        }
+    }
 }
 
 /**
@@ -87,6 +102,18 @@ internal class CheckoutSession(
     fun requestClose() {
         closeRequested = true
         activity.get()?.closeProgrammatically()
+    }
+
+    /**
+     * Dropped when no Activity is attached, deliberately - unlike [requestClose], which latches.
+     *
+     * A close is a decision about the whole checkout and has to survive the gap before the
+     * Activity attaches. A colour scheme is a property of a page that is not on screen yet: the
+     * URL already carries what the config said, so the only thing a latched value could do is
+     * fight it.
+     */
+    fun requestAppColorScheme(scheme: GlomoColorScheme) {
+        activity.get()?.setAppColorScheme(scheme)
     }
 }
 

@@ -28,10 +28,14 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [32])
 class CheckoutJourneyIdTest {
     private val host = Robolectric.buildActivity(Activity::class.java).setup().get()
-    private val config = GlomoPayConfig(publicKey = "test_public_key", orderId = "order_123")
+    private val config = GlomoPayConfig(
+        publicKey = "test_public_key",
+        orderId = "order_123",
+        appColorScheme = GlomoColorScheme.LIGHT,
+    )
 
     @AfterTest
     fun tearDown() {
@@ -61,7 +65,7 @@ class CheckoutJourneyIdTest {
         checkout.retry()
 
         assertEquals(
-            "https://lrs-checkout.glomopay.com/review?orderId=order_123&step=2&journeyId=$journeyId#summary",
+            "https://lrs-checkout.glomopay.com/review?orderId=order_123&step=2&colorScheme=light&journeyId=$journeyId#summary",
             checkout.loadedUrl(),
         )
         checkout.events.forEach { assertEquals(journeyId, it.properties["journey_id"], it.name) }
@@ -78,7 +82,7 @@ class CheckoutJourneyIdTest {
         checkout.retry()
 
         assertEquals(
-            ConfigManager.getCheckoutUrl(config, "lrs", journeyId),
+            ConfigManager.getCheckoutUrl(config, "lrs", ResolvedColorScheme.LIGHT, journeyId),
             checkout.loadedUrl(),
         )
     }

@@ -6,11 +6,41 @@ This project follows [Semantic Versioning](https://semver.org/).
 Starting with 1.0.0, the public API follows Semantic Versioning. Breaking
 public API changes require a new major release.
 
-## Unreleased
+## [Unreleased]
+
+### Added
+
+- `GlomoPayConfig.appColorScheme` (`GlomoColorScheme.AUTO` | `LIGHT` | `DARK`, default `AUTO`)
+  asks the Glomo checkout page for a colour scheme. It requests rather than forces: the page
+  decides, against your merchant dashboard settings. `AUTO` follows your app's own appearance -
+  `AppCompatDelegate.getDefaultNightMode()` where you have set one, then your theme's
+  `isLightTheme`, then the device - so a light-only app on a dark device gets a light checkout
+  whether or not it has ever called `setDefaultNightMode`.
+- `GlomoPayCheckoutHandle.setAppColorScheme(GlomoColorScheme)` changes the scheme of a checkout that
+  is already open. The page is told through the bridge rather than reloaded, so a payment in
+  flight survives the change. A host night-mode change reaches an open checkout on its own while
+  the scheme is `AUTO`.
+- `GlomoColorScheme` enum.
+- `GlomoPayCheckoutActivity.EXTRA_HOST_THEME_IS_LIGHT`, alongside the existing `EXTRA_*` constants.
+  `createIntent` sets it for you, resolved against the launching context's theme - that is how `AUTO`
+  reads your app's appearance rather than the SDK Activity's own. You only need the constant if you
+  build the launch Intent by hand; leave it off and `AUTO` falls through to the device configuration.
 
 ### Changed
 
+- Android WebView algorithmic darkening is now explicitly off on every page the SDK renders,
+  including bank and 3DS pages. Previously the platform could invert a page that handles its own
+  colours. Nothing to configure.
 - Each `startCheckout` call now passes a `journeyId` to checkout, and the SDK's analytics events carry it, so one checkout can be followed end to end.
+
+### Binary compatibility
+
+- Adding `appColorScheme` to `GlomoPayConfig` rewrites its constructor, `copy`, `copyWith` and
+  their `$default` bridges. Source-compatible in both languages: the parameter is defaulted and
+  goes last, so Kotlin call sites compile unchanged, and the constructor and `copyWith` carry
+  `@JvmOverloads` so Java's existing four-argument forms still resolve. Any **pre-compiled**
+  artifact linking against the 2.0.0 `$default` bridges must still be rebuilt; an ordinary app
+  rebuilds from source and is unaffected.
 
 ## [2.0.0] - 2026-10-01
 

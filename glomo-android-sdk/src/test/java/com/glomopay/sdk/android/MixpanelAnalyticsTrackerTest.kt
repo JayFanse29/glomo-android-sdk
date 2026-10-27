@@ -96,7 +96,7 @@ class MixpanelAnalyticsTrackerTest {
         val config = GlomoPayConfig(publicKey = "test_public_key", orderId = "order_123")
         val tracker = tracker(config, sessionId) { events += it }
 
-        tracker.updateCheckoutUrl(ConfigManager.getCheckoutUrl(config, "lrs", sessionId))
+        tracker.updateCheckoutUrl(ConfigManager.getCheckoutUrl(config, "lrs", colorScheme = null, journeyId = sessionId))
         tracker.track("Checkout Started")
 
         val checkoutUrl = events.single().properties["checkout_url"] as String
