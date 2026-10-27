@@ -104,10 +104,18 @@ MIXPANEL_TOKEN_PROD="<prod-project-token>" ./gradlew :glomo-android-sdk:assemble
 MIXPANEL_TOKEN_STAGING="<staging-project-token>" ./gradlew :sample-app:installDebug
 ```
 
-A missing token does not fail the build. The AAR is built with an empty token, the SDK uses a no-op
-tracker and sends no events, and checkout behavior is unchanged, so set `MIXPANEL_TOKEN_PROD` for
-every release build. Do not commit either token to `gradle.properties`; provide it through the
-release CI environment instead.
+Release packaging (`assembleRelease`, `bundleReleaseAar`) and any publish task fail unless
+`MIXPANEL_TOKEN_PROD` is set, differs from `MIXPANEL_TOKEN_STAGING`, and matches the prod token's
+SHA-256 fingerprint committed in `glomo-android-sdk/build.gradle.kts`. Only the fingerprint is
+committed, never the token. If the prod token is rotated, update `mixpanelProdTokenSha256` there.
+
+CI packages the release AAR with `-PMIXPANEL_TOKEN_PROD=ci-placeholder`. That literal value skips the
+fingerprint check and compiles an empty token, so the AAR has analytics off. It is for CI only; never
+use it for a release.
+
+If `MIXPANEL_TOKEN_STAGING` is absent, debug builds use a no-op tracker and checkout behavior is
+unchanged. Do not commit either token to `gradle.properties`; provide it through the release CI
+environment instead.
 
 The AAR declares `ACCESS_NETWORK_STATE`, a normal Android permission that does not show a runtime
 permission dialog. It is used only to populate `$wifi_enabled` and `$cellular_enabled`. Mixpanel's

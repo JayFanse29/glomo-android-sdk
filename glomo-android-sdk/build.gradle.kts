@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
@@ -16,6 +18,8 @@ val mixpanelStagingToken = providers.gradleProperty("MIXPANEL_TOKEN_STAGING")
 val mixpanelProdToken = providers.gradleProperty("MIXPANEL_TOKEN_PROD")
     .orElse(providers.environmentVariable("MIXPANEL_TOKEN_PROD"))
     .orElse("")
+val mixpanelProdTokenSha256 = "197f62175134727d6859669dabb3d68cf66df65f6c1342aea5683540b73b452a"
+val mixpanelCiPlaceholderToken = "ci-placeholder"
 val sentryDsn = providers.gradleProperty("SENTRY_DSN")
     .orElse(providers.environmentVariable("SENTRY_DSN"))
     .orElse("")
@@ -49,7 +53,11 @@ android {
             resValue("string", "glomopay_mixpanel_token", mixpanelStagingToken.get())
         }
         release {
-            resValue("string", "glomopay_mixpanel_token", mixpanelProdToken.get())
+            resValue(
+                "string",
+                "glomopay_mixpanel_token",
+                mixpanelProdToken.get().takeUnless { it == mixpanelCiPlaceholderToken }.orEmpty(),
+            )
         }
     }
 
@@ -100,20 +108,39 @@ tasks.named("check") {
 
 val verifyReleaseMixpanelToken by tasks.registering {
     group = "verification"
-    description = "Fails publishing when MIXPANEL_TOKEN_PROD is not set."
-    val token = mixpanelProdToken
+    description = "Fails release packaging and publishing unless MIXPANEL_TOKEN_PROD is the prod token " +
+        "or the CI-only placeholder."
+    val prodToken = mixpanelProdToken
+    val stagingToken = mixpanelStagingToken
+    val expectedSha256 = mixpanelProdTokenSha256
+    val ciPlaceholder = mixpanelCiPlaceholderToken
     doLast {
-        if (token.get().isBlank()) {
+        val token = prodToken.get()
+        if (token.isBlank()) {
             throw GradleException(
                 "Release builds require MIXPANEL_TOKEN_PROD. Set it as a Gradle property " +
                     "(-PMIXPANEL_TOKEN_PROD=...) or an environment variable.",
             )
         }
+        if (token == ciPlaceholder) return@doLast
+        if (token == stagingToken.get()) {
+            throw GradleException("MIXPANEL_TOKEN_PROD equals MIXPANEL_TOKEN_STAGING. Release builds need the prod token.")
+        }
+        val sha256 = MessageDigest.getInstance("SHA-256")
+            .digest(token.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        if (sha256 != expectedSha256) {
+            throw GradleException(
+                "MIXPANEL_TOKEN_PROD does not match the expected prod fingerprint. If the prod token was " +
+                    "rotated on purpose, update mixpanelProdTokenSha256 in glomo-android-sdk/build.gradle.kts.",
+            )
+        }
     }
 }
 
-tasks.matching { it.name.startsWith("publish") }
-    .configureEach { dependsOn(verifyReleaseMixpanelToken) }
+tasks.matching {
+    it.name == "assembleRelease" || it.name == "bundleReleaseAar" || it.name.startsWith("publish")
+}.configureEach { dependsOn(verifyReleaseMixpanelToken) }
 
 // Internal builds have distinct coordinates and cannot replace the merchant artifact.
 if (providers.gradleProperty("GLOMO_INTERNAL_BUILD")
