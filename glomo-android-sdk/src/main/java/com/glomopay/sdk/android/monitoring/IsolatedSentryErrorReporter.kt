@@ -1,6 +1,7 @@
 package com.glomopay.sdk.android.monitoring
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import com.glomopay.sdk.android.GlomoPayConfig
 import com.glomopay.sdk.android.analytics.AnalyticsSanitizer
 import com.glomopay.sdk.android.analytics.GlomoPayLogger
@@ -195,12 +196,16 @@ internal class IsolatedSentryErrorReporter(
 }
 
 internal object SdkErrorReporterFactory {
+    @VisibleForTesting
+    internal var reporterFactory: ((sessionId: String, flowType: String) -> SdkErrorReporter)? = null
+
     fun create(
         context: Context,
         config: GlomoPayConfig,
         sessionId: String,
         flowType: String,
-    ): SdkErrorReporter = create(AndroidReporterEnvironment(context), config, sessionId, flowType)
+    ): SdkErrorReporter = reporterFactory?.invoke(sessionId, flowType)
+        ?: create(AndroidReporterEnvironment(context), config, sessionId, flowType)
 
     /**
      * A missing or malformed DSN, or a missing SDK version resource, yields the no-op reporter. A

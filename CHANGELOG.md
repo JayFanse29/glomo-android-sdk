@@ -10,8 +10,7 @@ public API changes require a new major release.
 
 ### Changed
 
-- Checkout now receives a `journeyId` generated for each `startCheckout` call, and every Mixpanel event carries it as `journey_id` with `distinct_id = $device:<journeyId>` and `$device_id` instead of the order id; a new `sdk_loaded` event marks each `startCheckout` call, before validation, so refused or failed launches are reported by `SDK Validation Failed` and the launch failure path; `$insert_id` is unique per event, and identifier properties are no longer partly redacted but are still capped at 1,000 characters.
-- The Mixpanel token is set per build type: release builds read only `MIXPANEL_TOKEN_PROD` and fail if it is not set, and debug builds read only `MIXPANEL_TOKEN_STAGING`. The legacy `MIXPANEL_TOKEN` is no longer read.
+- Each `startCheckout` call now passes a `journeyId` to checkout, and the SDK's analytics events carry it, so one checkout can be followed end to end.
 
 ## [2.0.0] - 2026-10-01
 

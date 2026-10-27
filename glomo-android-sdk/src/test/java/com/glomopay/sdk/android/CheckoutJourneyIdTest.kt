@@ -11,6 +11,8 @@ import com.glomopay.sdk.android.analytics.AnalyticsEvents
 import com.glomopay.sdk.android.analytics.AnalyticsFactory
 import com.glomopay.sdk.android.analytics.AnalyticsTransport
 import com.glomopay.sdk.android.analytics.MixpanelAnalyticsTracker
+import com.glomopay.sdk.android.monitoring.NoOpSdkErrorReporter
+import com.glomopay.sdk.android.monitoring.SdkErrorReporterFactory
 import com.glomopay.sdk.android.ui.GlomoPayCheckoutActivity
 import java.net.URI
 import java.time.Duration
@@ -34,6 +36,7 @@ class CheckoutJourneyIdTest {
     @AfterTest
     fun tearDown() {
         AnalyticsFactory.trackerFactory = null
+        SdkErrorReporterFactory.reporterFactory = null
     }
 
     @Test
@@ -95,6 +98,7 @@ class CheckoutJourneyIdTest {
 
     private fun openCheckout(): OpenedCheckout {
         val events = mutableListOf<AnalyticsEvent>()
+        SdkErrorReporterFactory.reporterFactory = { _, _ -> NoOpSdkErrorReporter }
         AnalyticsFactory.trackerFactory = { sessionId, flowType ->
             MixpanelAnalyticsTracker(
                 config = config,

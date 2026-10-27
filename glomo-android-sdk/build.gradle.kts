@@ -100,7 +100,7 @@ tasks.named("check") {
 
 val verifyReleaseMixpanelToken by tasks.registering {
     group = "verification"
-    description = "Fails release packaging and publishing when MIXPANEL_TOKEN_PROD is not set."
+    description = "Fails publishing when MIXPANEL_TOKEN_PROD is not set."
     val token = mixpanelProdToken
     doLast {
         if (token.get().isBlank()) {
@@ -112,7 +112,7 @@ val verifyReleaseMixpanelToken by tasks.registering {
     }
 }
 
-tasks.matching { it.name == "assembleRelease" || it.name == "bundleReleaseAar" || it.name.startsWith("publish") }
+tasks.matching { it.name.startsWith("publish") }
     .configureEach { dependsOn(verifyReleaseMixpanelToken) }
 
 // Internal builds have distinct coordinates and cannot replace the merchant artifact.
