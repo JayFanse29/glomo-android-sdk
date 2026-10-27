@@ -54,7 +54,7 @@ internal class MixpanelAnalyticsTracker(
     override fun track(event: String, properties: Map<String, Any?>) {
         errorReporter.addBreadcrumb("analytics", event, mapOf("event_name" to event))
         val now = clock()
-        val eventProperties = commonProperties(now) + properties
+        val eventProperties = properties + commonProperties(now)
         val analyticsEvent = AnalyticsEvent(event, AnalyticsSanitizer.properties(eventProperties))
         executor.execute {
             runCatching { transport.send(analyticsEvent) }

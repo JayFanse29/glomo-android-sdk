@@ -106,6 +106,31 @@ class MixpanelAnalyticsTrackerTest {
     }
 
     @Test
+    fun standard_properties_win_over_call_site_properties() {
+        val events = mutableListOf<AnalyticsEvent>()
+        val sessionId = UUID.randomUUID().toString()
+        val tracker = tracker(GlomoPayConfig(publicKey = "test_public_key", orderId = "order_123"), sessionId) {
+            events += it
+        }
+
+        tracker.track(
+            "Checkout Started",
+            mapOf(
+                "journey_id" to "overridden",
+                "distinct_id" to "overridden",
+                "\$device_id" to "overridden",
+                "reason" to "kept",
+            ),
+        )
+
+        val properties = events.single().properties
+        assertEquals(sessionId, properties["journey_id"])
+        assertEquals("\$device:$sessionId", properties["distinct_id"])
+        assertEquals(sessionId, properties["\$device_id"])
+        assertEquals("kept", properties["reason"])
+    }
+
+    @Test
     fun insert_id_is_unique_per_event() {
         val events = mutableListOf<AnalyticsEvent>()
         val tracker = tracker(GlomoPayConfig(publicKey = "test_public_key", orderId = "order_123")) { events += it }

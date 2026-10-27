@@ -95,18 +95,19 @@ The sample app accepts a public key and order/subscription ID, enables developer
 
 The Android AAR sends the documented checkout events directly to Mixpanel's `/track?ip=1` API. The
 project token is compiled into the AAR per build type and is never accepted through the
-merchant-facing SDK API. Release builds read `MIXPANEL_TOKEN_PROD`, and publishing fails if it is not
-set; debug builds, including the sample app, read only `MIXPANEL_TOKEN_STAGING`; each is a Gradle
-property or environment variable.
+merchant-facing SDK API. Release builds read only `MIXPANEL_TOKEN_PROD`; debug builds, including the
+sample app, read only `MIXPANEL_TOKEN_STAGING`; each is a Gradle property or environment variable.
+The legacy `MIXPANEL_TOKEN` is not read.
 
 ```bash
 MIXPANEL_TOKEN_PROD="<prod-project-token>" ./gradlew :glomo-android-sdk:assembleRelease
 MIXPANEL_TOKEN_STAGING="<staging-project-token>" ./gradlew :sample-app:installDebug
 ```
 
-If the token for a build type is absent, that build uses a no-op tracker and checkout behavior is
-unchanged. Do not commit either token to `gradle.properties`; provide it through the release CI
-environment instead.
+A missing token does not fail the build. The AAR is built with an empty token, the SDK uses a no-op
+tracker and sends no events, and checkout behavior is unchanged, so set `MIXPANEL_TOKEN_PROD` for
+every release build. Do not commit either token to `gradle.properties`; provide it through the
+release CI environment instead.
 
 The AAR declares `ACCESS_NETWORK_STATE`, a normal Android permission that does not show a runtime
 permission dialog. It is used only to populate `$wifi_enabled` and `$cellular_enabled`. Mixpanel's
