@@ -70,6 +70,29 @@ class AnalyticsSanitizerTest {
     }
 
     @Test
+    fun device_and_app_metadata_keep_their_raw_values() {
+        val metadata = mapOf(
+            "\$app_build_number" to "2026102801",
+            "\$app_version_string" to "2.4.0+2026102801",
+            "\$app_name" to "Wallet (1234567)",
+            "\$model" to "SM-G991B",
+            "\$os_version" to "14",
+            "\$manufacturer" to "samsung",
+            "\$lib_version" to "2",
+            "mp_lib" to "glomo-android-sdk",
+        )
+
+        assertEquals(metadata, AnalyticsSanitizer.properties(metadata))
+    }
+
+    @Test
+    fun metadata_values_are_capped_at_the_max_string_length() {
+        val sanitized = AnalyticsSanitizer.properties(mapOf("\$app_name" to "a".repeat(2_000)))
+
+        assertEquals("a".repeat(AnalyticsSanitizer.MAX_STRING_LENGTH), sanitized["\$app_name"])
+    }
+
+    @Test
     fun identifier_allowlist_does_not_exempt_other_keys() {
         val sanitized = AnalyticsSanitizer.properties(mapOf(
             "journey_id" to "123456789012",

@@ -27,6 +27,11 @@ internal object AnalyticsSanitizer {
         "distinct_id",
         "resource_id",
     )
+    private val metadataKeys = setOf(
+        "\$app_version_string", "\$app_build_number", "\$app_namespace", "\$app_name",
+        "\$model", "\$device", "\$os", "\$os_version", "\$manufacturer", "\$brand",
+        "\$device_type", "\$locale", "\$lib_version", "mp_lib",
+    )
 
     fun properties(input: Map<String, Any?>): Map<String, Any?> = buildMap {
         input.forEach { (key, value) ->
@@ -35,6 +40,7 @@ internal object AnalyticsSanitizer {
                 value is Boolean -> put(key, value)
                 value !is String && value !is Number -> Unit
                 key in identifierKeys -> put(key, value.toString().take(MAX_STRING_LENGTH))
+                key in metadataKeys && value is String -> put(key, value.take(MAX_STRING_LENGTH))
                 isMaskedKey(key) -> put(key, maskByKey(key, value.toString()))
                 value is String -> put(key, maskValue(value).take(MAX_STRING_LENGTH))
                 else -> put(key, value)

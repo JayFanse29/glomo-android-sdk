@@ -19,6 +19,8 @@
     { "name": "whole tokens only: discard_reason", "key": "discard_reason", "value": "expired", "expected": "expired" },
     { "name": "taxonomy key is exempt", "key": "page_name", "value": "bank_redirect", "expected": "bank_redirect" },
     { "name": "reserved key is exempt", "key": "$app_name", "value": "Merchant App", "expected": "Merchant App" },
+    { "name": "date-style build number is not phone-masked", "key": "$app_build_number", "value": "2026102801", "expected": "2026102801" },
+    { "name": "public_key is value-masked", "key": "public_key", "value": "live_pk-9876543210", "expected": "live_pk-••••3210" },
     { "name": "booleans skip the key rule", "key": "has_email", "value": true, "expected": true },
     { "name": "numbers are never pattern-matched", "key": "amount", "value": 9876543210, "expected": 9876543210 },
     { "name": "identifiers pass through", "key": "journey_id", "value": "0f8e6c1a-2b3d-4e5f-8a9b-123456789012", "expected": "0f8e6c1a-2b3d-4e5f-8a9b-123456789012" },
