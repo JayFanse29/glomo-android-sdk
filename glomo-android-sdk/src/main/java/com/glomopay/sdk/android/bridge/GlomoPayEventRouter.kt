@@ -73,7 +73,6 @@ internal class GlomoPayEventRouter(
                 }
                 "message" -> handlePaymentEvent(envelope["data"] as? Map<*, *>)
                 "dependencies.failed_to_load" -> emitDependencyError(envelope["message"]?.toString())
-                "webview.error" -> analytics.pageScriptFailed(webViewType)
                 "file.input" -> emit("file.requested", envelope)
             }
         } catch (error: Exception) {

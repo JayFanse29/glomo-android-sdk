@@ -117,7 +117,6 @@ class AnalyticsCatalogueTest {
             ConnectionError.fromWebResourceError("failed", -1),
             ConnectionError(ConnectionErrorType.UNKNOWN, "renderer crashed"),
         ).forEach { analytics.errorViewed(analytics.webViewLoadFailed(it, "main", null)) }
-        analytics.pageScriptFailed("main")
         analytics.navigationBlocked("intent", "flow")
         analytics.invalidWindowOpenUrl("main")
         analytics.documentUploadFailed("image/*,application/pdf")

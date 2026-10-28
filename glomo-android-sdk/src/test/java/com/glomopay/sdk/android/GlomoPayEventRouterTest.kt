@@ -92,7 +92,7 @@ class GlomoPayEventRouterTest {
     }
 
     @Test
-    fun webview_error_is_tracked_with_its_webview_context() {
+    fun page_script_errors_send_no_analytics() {
         val analytics = RecordingAnalytics()
         val router = GlomoPayEventRouter(
             listener = RecordingListener(),
@@ -110,12 +110,7 @@ class GlomoPayEventRouterTest {
             webViewType = "flow",
         )
 
-        val event = analytics.events.single()
-        assertEquals(AnalyticsEvents.SDK_ACTION_FAILED, event.name)
-        assertEquals("webview_load", event.properties["action_name"])
-        assertEquals("webview_error", event.properties["error_code"])
-        assertEquals("flow", event.properties["webview_type"])
-        assertFalse("error_message" in event.properties)
+        assertTrue(analytics.events.isEmpty())
     }
 
     @Test

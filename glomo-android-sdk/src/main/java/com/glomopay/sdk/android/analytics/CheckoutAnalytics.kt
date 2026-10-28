@@ -104,10 +104,6 @@ internal class CheckoutAnalytics(private val tracker: AnalyticsTracker) {
         return errorCode.analyticsValue
     }
 
-    fun pageScriptFailed(webViewType: String) {
-        actionFailed(AnalyticsAction.WEBVIEW_LOAD, ActionErrorCode.WEBVIEW_ERROR, mapOf("webview_type" to webViewType))
-    }
-
     fun navigationBlocked(scheme: String, webViewType: String) {
         actionFailed(
             AnalyticsAction.NAVIGATION,
