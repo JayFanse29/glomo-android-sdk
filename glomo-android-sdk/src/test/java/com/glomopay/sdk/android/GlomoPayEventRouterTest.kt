@@ -5,6 +5,7 @@ import com.glomopay.sdk.android.bridge.GlomoPayInjectionScripts
 import com.glomopay.sdk.android.analytics.AnalyticsEvent
 import com.glomopay.sdk.android.analytics.AnalyticsEvents
 import com.glomopay.sdk.android.analytics.AnalyticsTracker
+import com.glomopay.sdk.android.analytics.CheckoutAnalytics
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -97,7 +98,7 @@ class GlomoPayEventRouterTest {
             listener = RecordingListener(),
             devMode = false,
             onComplete = {},
-            analytics = analytics,
+            analytics = CheckoutAnalytics(analytics),
         )
 
         router.handleEnvelope(
@@ -109,9 +110,12 @@ class GlomoPayEventRouterTest {
             webViewType = "flow",
         )
 
-        assertEquals(AnalyticsEvents.WEBVIEW_ERROR, analytics.events.single().name)
-        assertEquals("js_error", analytics.events.single().properties["error_type"])
-        assertEquals("flow", analytics.events.single().properties["webview_type"])
+        val event = analytics.events.single()
+        assertEquals(AnalyticsEvents.SDK_ACTION_FAILED, event.name)
+        assertEquals("webview_load", event.properties["action_name"])
+        assertEquals("webview_error", event.properties["error_code"])
+        assertEquals("flow", event.properties["webview_type"])
+        assertFalse("error_message" in event.properties)
     }
 
     @Test
@@ -121,7 +125,7 @@ class GlomoPayEventRouterTest {
             listener = RecordingListener(),
             devMode = false,
             onComplete = {},
-            analytics = analytics,
+            analytics = CheckoutAnalytics(analytics),
         )
 
         // The live page signal, then shapes that must not count.
@@ -150,11 +154,12 @@ class GlomoPayEventRouterTest {
         ))
 
         assertEquals(
-            listOf(AnalyticsEvents.EDUCATION_STEPS_SHOWN, AnalyticsEvents.EDUCATION_STEPS_FAILED),
+            listOf(AnalyticsEvents.SDK_PAGE_VIEWED, AnalyticsEvents.SDK_ACTION_FAILED),
             analytics.events.map { it.name },
         )
-        assertEquals("checkout", analytics.events[0].properties["source"])
-        assertEquals("render_failed", analytics.events[1].properties["reason"])
+        assertEquals("education_carousel", analytics.events[0].properties["page_name"])
+        assertEquals("education_carousel", analytics.events[1].properties["action_name"])
+        assertEquals("render_failed", analytics.events[1].properties["error_code"])
     }
 
     @Test
@@ -193,12 +198,12 @@ class GlomoPayEventRouterTest {
             listener = RecordingListener(),
             devMode = false,
             onComplete = { completed++ },
-            analytics = analytics,
+            analytics = CheckoutAnalytics(analytics),
         )
 
         router.handleEnvelope(mapOf("type" to "message", "data" to mapOf("type" to "payment.pending")))
 
-        assertEquals(AnalyticsEvents.PAYMENT_PENDING, analytics.events.single().name)
+        assertTrue(analytics.events.isEmpty())
         assertEquals(0, completed)
     }
 
@@ -283,49 +288,126 @@ class GlomoPayEventRouterTest {
     }
 
     @Test
-    fun router_maps_redirect_payment_and_dependency_events_to_analytics() {
+    fun router_maps_redirect_and_dependency_events_to_the_catalogue() {
         val analytics = RecordingAnalytics()
         val router = GlomoPayEventRouter(
             listener = RecordingListener(),
             devMode = false,
             onComplete = {},
-            analytics = analytics,
+            analytics = CheckoutAnalytics(analytics),
         )
 
         router.handleEnvelope(mapOf(
             "type" to "window.open",
             "url" to "https://bank.example/verify?phone=9876543210",
         ))
-        router.handleEnvelope(mapOf(
-            "type" to "message",
-            "data" to mapOf("type" to "payment.pending", "paymentId" to "pay_1"),
-        ))
+        router.handleEnvelope(mapOf("type" to "window.close"))
+        router.handleEnvelope(mapOf("type" to "window.open", "url" to "intent://pay"))
+        router.handleEnvelope(mapOf("type" to "dependencies.failed_to_load", "message" to "Unavailable"))
         router.handleEnvelope(mapOf("type" to "dependencies.failed_to_load", "message" to "Unavailable"))
 
         assertEquals(
-            listOf("Redirect Opened", "Payment Pending", "Checkout Dependencies Failed"),
+            listOf(
+                AnalyticsEvents.SDK_PAGE_VIEWED,
+                AnalyticsEvents.SDK_ACTION_SUBMITTED,
+                AnalyticsEvents.SDK_ACTION_FAILED,
+                AnalyticsEvents.SDK_CHECKOUT_FAILED,
+            ),
             analytics.events.map { it.name },
         )
-        assertEquals("https://bank.example", analytics.events.first().properties["url"])
-        assertEquals("main", analytics.events.first().properties["source"])
-        assertEquals("pay_1", analytics.events[1].properties["payment_id"])
+        val (viewed, submitted, blocked, failed) = analytics.events.map { it.properties }
+        assertEquals(mapOf("page_name" to "bank_redirect", "url_origin" to "https://bank.example"), viewed)
+        assertEquals(mapOf("action_name" to "bank_redirect", "url_origin" to "https://bank.example"), submitted)
+        assertEquals("navigation", blocked["action_name"])
+        assertEquals("invalid_window_open_url", blocked["error_code"])
+        assertEquals(mapOf("error_code" to "dependencies_failed_to_load"), failed)
     }
 
     @Test
-    fun malformed_bridge_message_is_analytics_safe_and_truncated() {
+    fun an_outcome_closes_the_checkout_once_with_its_payment_event_and_no_payment_event_of_its_own() {
+        val outcomes = mapOf(
+            "payment_success" to mapOf(
+                "type" to "payment.success",
+                "payload" to mapOf("orderId" to "order_1", "paymentId" to "pay_1", "signature" to "sig_1"),
+            ),
+            "payment_failure" to mapOf("type" to "payment.failed", "payload" to mapOf("orderId" to "order_1")),
+            "bank_transfer_submitted" to mapOf(
+                "type" to "payment.bank_transfer_submitted",
+                "payload" to mapOf("orderId" to "order_1"),
+            ),
+        )
+        outcomes.forEach { (paymentEvent, data) ->
+            val analytics = RecordingAnalytics()
+            val router = GlomoPayEventRouter(
+                listener = RecordingListener(),
+                devMode = false,
+                onComplete = {},
+                analytics = CheckoutAnalytics(analytics),
+            )
+
+            router.handleEnvelope(mapOf("type" to "message", "data" to data))
+            router.handleEnvelope(mapOf("type" to "message", "data" to data))
+
+            val closed = analytics.events.single()
+            assertEquals(AnalyticsEvents.SDK_CHECKOUT_CLOSED, closed.name)
+            assertEquals(
+                mapOf("trigger" to "sdk", "page_name" to "loading", "payment_event" to paymentEvent, "had_listener" to true),
+                closed.properties,
+            )
+        }
+    }
+
+    @Test
+    fun an_outcome_without_a_listener_is_recorded_as_such() {
+        val analytics = RecordingAnalytics()
+        val router = GlomoPayEventRouter(
+            listener = null,
+            devMode = false,
+            onComplete = {},
+            analytics = CheckoutAnalytics(analytics),
+        )
+
+        router.handleEnvelope(mapOf("type" to "message", "data" to mapOf(
+            "type" to "payment.failed",
+            "payload" to mapOf("orderId" to "order_1"),
+        )))
+
+        assertEquals(false, analytics.events.single().properties["had_listener"])
+    }
+
+    @Test
+    fun a_page_cancel_closes_as_a_user_dismiss() {
         val analytics = RecordingAnalytics()
         val router = GlomoPayEventRouter(
             listener = RecordingListener(),
             devMode = false,
             onComplete = {},
-            analytics = analytics,
+            analytics = CheckoutAnalytics(analytics),
+        )
+
+        router.handleEnvelope(mapOf("type" to "message", "data" to mapOf("type" to "checkout.closed")))
+
+        assertEquals(AnalyticsEvents.SDK_CHECKOUT_CLOSED, analytics.events.single().name)
+        assertEquals("user_dismiss", analytics.events.single().properties["trigger"])
+    }
+
+    @Test
+    fun malformed_bridge_message_sends_no_analytics() {
+        val analytics = RecordingAnalytics()
+        val listener = RecordingListener()
+        val router = GlomoPayEventRouter(
+            listener = listener,
+            devMode = false,
+            onComplete = {},
+            analytics = CheckoutAnalytics(analytics),
         )
 
         router.handle("{not-json user@example.com")
+        router.handleEnvelope(mapOf("type" to "unknown.type", "data" to "user@example.com"))
+        router.handleEnvelope(mapOf("type" to "console", "message" to "user@example.com"))
 
-        assertEquals("Invalid Message Received", analytics.events[0].name)
-        assertTrue(analytics.events[0].properties["data"].toString().contains("[REDACTED]"))
-        assertEquals("SDK Error", analytics.events[1].name)
+        assertTrue(analytics.events.isEmpty())
+        assertEquals(1, listener.sdkErrors.size)
     }
 
     private class RecordingListener : GlomoPayListener {
@@ -363,7 +445,5 @@ class GlomoPayEventRouterTest {
         }
 
         override fun updateFlowType(flowType: String) = Unit
-
-        override fun updateCheckoutUrl(url: String) = Unit
     }
 }

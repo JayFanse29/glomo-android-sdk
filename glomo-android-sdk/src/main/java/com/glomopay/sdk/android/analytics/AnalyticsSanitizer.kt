@@ -3,44 +3,44 @@ package com.glomopay.sdk.android.analytics
 import java.net.URI
 
 internal object AnalyticsSanitizer {
-    private val email = Regex("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", RegexOption.IGNORE_CASE)
-    private val bareNumeric = Regex("(?<![A-Za-z0-9_])(?:\\d[\\s-]*){6,}(?![A-Za-z0-9_])")
-    private val pan = Regex("(?<![A-Za-z0-9_])[A-Z]{5}[0-9]{4}[A-Z](?![A-Za-z0-9_])", RegexOption.IGNORE_CASE)
+    private val email = Regex("([A-Z0-9._%+-])[A-Z0-9._%+-]*@([A-Z0-9.-]+\\.[A-Z]{2,})", RegexOption.IGNORE_CASE)
+    private val cardCandidate = Regex("(?<![A-Za-z0-9_])\\d(?:[ -]?\\d){12,18}(?![A-Za-z0-9_])")
+    private val taxPan = Regex("(?<![A-Za-z0-9_])[A-Z]{5}[0-9]{4}[A-Z](?![A-Za-z0-9_])", RegexOption.IGNORE_CASE)
+    private val phoneLike = Regex("(?<![A-Za-z0-9_])\\d(?:[ -]?\\d){9,11}(?![A-Za-z0-9_])")
     private val passport = Regex("(?<![A-Za-z0-9_])[A-Z][0-9]{7}(?![A-Za-z0-9_])", RegexOption.IGNORE_CASE)
     private val voterId = Regex("(?<![A-Za-z0-9_])[A-Z]{3}[0-9]{7}(?![A-Za-z0-9_])", RegexOption.IGNORE_CASE)
-    private val blockedKeys = Regex("(email|phone|mobile|customer_name|card|pan|account|aadhaar|passport|voter|kyc)", RegexOption.IGNORE_CASE)
-    private val isoTimestamp = Regex("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}(?:Z|[+-]\\d{2}:\\d{2})")
+    private val maskedKeyTokens = setOf(
+        "email", "phone", "mobile", "pan", "aadhaar", "name", "account", "card", "address", "dob", "token", "otp",
+        "passport", "voter",
+    )
+    private val exemptKeys = setOf(
+        "page_name", "cta_name", "step_name", "control_name", "otp_channel", "status", "failure_reason",
+        "error_code", "trigger", "error_detail", "action_name", "webview_type", "permission", "request_source",
+        "last_step", "page_event", "payment_event", "api_path",
+        "integration", "platform", "sdk_version", "public_key", "dev_mode", "key_mode", "resource_id", "journey",
+        "journey_id",
+    )
     private val identifierKeys = setOf(
         "journey_id",
-        "session_id",
         "\$device_id",
         "\$insert_id",
         "distinct_id",
-        "order_id",
-        "subscription_id",
+        "resource_id",
     )
 
     fun properties(input: Map<String, Any?>): Map<String, Any?> = buildMap {
         input.forEach { (key, value) ->
-            if (!blockedKeys.containsMatchIn(key)) {
-                when {
-                    value == null -> put(key, null)
-                    key in identifierKeys && value is String -> put(key, value.take(MAX_STRING_LENGTH))
-                    key == "timestamp" && value is String && isoTimestamp.matches(value) -> put(key, value)
-                    else -> sanitizeValue(value)?.let { put(key, it) }
-                }
+            when {
+                value == null -> put(key, null)
+                value is Boolean -> put(key, value)
+                value !is String && value !is Number -> Unit
+                key in identifierKeys -> put(key, value.toString().take(MAX_STRING_LENGTH))
+                isMaskedKey(key) -> put(key, maskByKey(key, value.toString()))
+                value is String -> put(key, maskValue(value).take(MAX_STRING_LENGTH))
+                else -> put(key, value)
             }
         }
     }
-
-    fun text(value: String, limit: Int): String = redact(value).take(limit)
-
-    /** Main checkout URLs retain a redacted path but never credentials, query, or fragment data. */
-    fun navigationUrl(value: String): String? = runCatching {
-        val uri = URI(value)
-        if (uri.scheme !in setOf("http", "https") || uri.host.isNullOrBlank()) return null
-        URI(uri.scheme, null, uri.host, uri.port, sanitizePath(uri.path), null, null).toString()
-    }.getOrNull()
 
     /** Bank URLs may contain PII anywhere after the host, so only the HTTPS origin is retained. */
     fun bankRedirectUrl(value: String): String? = runCatching {
@@ -49,20 +49,35 @@ internal object AnalyticsSanitizer {
         URI("https", null, uri.host.lowercase(), -1, null, null, null).toString()
     }.getOrNull()
 
-    private fun sanitizeValue(value: Any?): Any? = when (value) {
-        null, is Boolean, is Number -> value
-        is String -> redact(value).take(MAX_STRING_LENGTH)
-        else -> redact(value.toString()).take(MAX_STRING_LENGTH)
+    private fun isMaskedKey(key: String): Boolean {
+        if (key.startsWith("$") || key in exemptKeys) return false
+        return keyTokens(key).any { it in maskedKeyTokens }
     }
 
-    private fun redact(value: String): String = listOf(email, bareNumeric, pan, passport, voterId)
-        .fold(value) { result, pattern -> result.replace(pattern, "[REDACTED]") }
+    private fun maskByKey(key: String, value: String): String =
+        if ("account" in keyTokens(key)) "••••${value.takeLast(4)}" else "•••"
 
-    private fun sanitizePath(path: String?): String {
-        if (path.isNullOrBlank()) return "/"
-        return path.split('/').joinToString("/") { segment ->
-            if (segment.isBlank()) segment else redact(segment)
+    private fun keyTokens(key: String): List<String> = key.lowercase().split('_')
+
+    private fun maskValue(value: String): String {
+        val withoutEmails = email.replace(value) { "${it.groupValues[1]}•••@${it.groupValues[2]}" }
+        val withoutCards = cardCandidate.replace(withoutEmails) { match ->
+            val digits = match.value.filter(Char::isDigit)
+            if (isLuhnValid(digits)) "XXXX-XXXX-XXXX-${digits.takeLast(4)}" else match.value
         }
+        val withoutTaxPans = taxPan.replace(withoutCards) { "XXXXXX${it.value.takeLast(4).uppercase()}" }
+        val withoutPhones = phoneLike.replace(withoutTaxPans) { match ->
+            "••••${match.value.filter(Char::isDigit).takeLast(4)}"
+        }
+        return listOf(passport, voterId).fold(withoutPhones) { result, pattern -> result.replace(pattern, "•••") }
+    }
+
+    private fun isLuhnValid(digits: String): Boolean {
+        val sum = digits.reversed().mapIndexed { index, char ->
+            val digit = char - '0'
+            if (index % 2 == 1) (digit * 2).let { if (it > 9) it - 9 else it } else digit
+        }.sum()
+        return sum % 10 == 0
     }
 
     internal const val MAX_STRING_LENGTH = 1_000

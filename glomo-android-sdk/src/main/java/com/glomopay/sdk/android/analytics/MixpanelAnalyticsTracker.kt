@@ -11,10 +11,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 import java.util.UUID
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -37,18 +33,9 @@ internal class MixpanelAnalyticsTracker(
     private val errorReporter: SdkErrorReporter = NoOpSdkErrorReporter,
 ) : AnalyticsTracker {
     @Volatile private var flowType: String = initialFlowType
-    @Volatile private var checkoutUrl: String? = null
-    private val timestampFormatter = SimpleDateFormat(
-        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
-        Locale.US,
-    ).apply { timeZone = INDIA_TIME_ZONE }
 
     override fun updateFlowType(flowType: String) {
         this.flowType = flowType
-    }
-
-    override fun updateCheckoutUrl(url: String) {
-        checkoutUrl = AnalyticsSanitizer.navigationUrl(url)
     }
 
     override fun track(event: String, properties: Map<String, Any?>) {
@@ -70,33 +57,31 @@ internal class MixpanelAnalyticsTracker(
     }
 
     private fun commonProperties(now: Long): Map<String, Any?> = buildMap {
-        put("sdk_version", sdkVersion)
-        put("sdk_source", "glomo-android-sdk")
+        put("integration", INTEGRATION)
         put("platform", "android")
-        put("surface", "android-sdk")
+        put("sdk_version", sdkVersion)
         putAll(deviceProperties())
-        put("flow_type", flowType)
-        put("order_id", config.orderId)
-        put("subscription_id", config.subscriptionId)
         put("public_key", config.publicKey)
-        put("checkout_url", checkoutUrl)
         put("dev_mode", com.glomopay.sdk.android.BuildConfig.GLOMO_INTERNAL_BUILD)
-        put("mock_mode", ConfigManager.isTestOrMock(config.publicKey))
+        put("key_mode", if (ConfigManager.isTestOrMock(config.publicKey)) "test" else "live")
+        put("resource_id", config.checkoutId)
+        journey()?.let { put("journey", it) }
         put("time", now)
-        put("timestamp", isoTimestamp(now))
-        put("session_id", sessionId)
         put("journey_id", sessionId)
         put("\$device_id", sessionId)
         put("\$insert_id", UUID.randomUUID().toString())
         put("distinct_id", "\$device:$sessionId")
     }
 
-    private fun isoTimestamp(timeMillis: Long): String = synchronized(timestampFormatter) {
-        timestampFormatter.format(Date(timeMillis))
+    private fun journey(): String? = when {
+        config.isSubscription -> "subscription"
+        flowType.lowercase() in JOURNEYS -> flowType.lowercase()
+        else -> null
     }
 
     private companion object {
-        val INDIA_TIME_ZONE: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
+        const val INTEGRATION = "android_sdk"
+        val JOURNEYS = setOf("standard", "lrs")
         val DEFAULT_EXECUTOR: Executor = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "GlomoPay-Mixpanel").apply { isDaemon = true }
         }

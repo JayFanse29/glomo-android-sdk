@@ -122,16 +122,20 @@ permission dialog. It is used only to populate `$wifi_enabled` and `$cellular_en
 `ip=1` ingestion option derives coarse `$city`, `$region`, and `mp_country_code` properties from the
 request IP; the SDK does not request device location permission or read GPS coordinates.
 
-Every event includes the approved device, screen, merchant-app, locale, SDK, flow, and session
-properties. `journey_id`, `session_id` and `$device_id` carry the id generated for each
-`startCheckout` call, which checkout also receives as `journeyId`, `distinct_id` is `$device:<journey_id>`, `$insert_id` is unique per event,
-and `order_id` is a plain property. Properties that cannot be determined are encoded as explicit JSON nulls.
+Events follow Glomo's shared SDK catalogue: `sdk_loaded`, `sdk_page_viewed`, `sdk_api_backend`,
+`sdk_action_submitted`, `sdk_action_failed`, `sdk_cta_clicked`, `sdk_control_changed`,
+`sdk_checkout_failed` and `sdk_checkout_closed`. Every event carries `integration` (`android_sdk`),
+`platform` (`android`), `sdk_version`, `public_key`, `dev_mode`, `key_mode` (`test` or `live`),
+`resource_id` (the order or subscription id), `journey` (`standard`, `lrs` or `subscription`, once
+known) and the approved device, screen, merchant-app and locale properties. `journey_id` and
+`$device_id` carry the id generated for each `startCheckout` call, which checkout also receives as
+`journeyId`; `distinct_id` is `$device:<journey_id>` and `$insert_id` is unique per event. Property
+values are flat strings, numbers or booleans from fixed lists; no free-text error message is sent.
 
-For bank/3DS redirects, only `https://hostname` is transmitted. Credentials, port, path, query, and
-fragment are discarded before `Redirect Opened`, `Redirect Page Started`, `Redirect Page Finished`,
-and `Redirect URL Change` events are built. WebView context values are limited to `main` and `flow`.
-When development mode skips compliance enforcement, all compliance detection properties are sent
-as null to distinguish "not checked" from a passing result.
+For bank/3DS redirects, only the `https://hostname` origin is transmitted, as `url_origin`.
+Credentials, port, path, query, and fragment are discarded first. WebView context values are limited
+to `main` and `flow`. Device compliance results are not sent to analytics; a blocked device is
+reported as `sdk_checkout_failed` with `error_code` `compliance_blocked`.
 
 ## Sentry build configuration
 

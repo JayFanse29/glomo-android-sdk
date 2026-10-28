@@ -28,6 +28,7 @@ public API changes require a new major release.
 
 ### Changed
 
+- Analytics events now follow Glomo's unified naming; no API, callback or configuration change.
 - Android WebView algorithmic darkening is now explicitly off on every page the SDK renders,
   including bank and 3DS pages. Previously the platform could invert a page that handles its own
   colours. Nothing to configure.

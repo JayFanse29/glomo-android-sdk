@@ -1,6 +1,7 @@
 package com.glomopay.sdk.android
 
 import com.glomopay.sdk.android.analytics.AnalyticsEvent
+import com.glomopay.sdk.android.analytics.AnalyticsEvents
 import com.glomopay.sdk.android.analytics.AnalyticsTransport
 import com.glomopay.sdk.android.analytics.MixpanelAnalyticsTracker
 import com.glomopay.sdk.android.analytics.MixpanelEventEncoder
@@ -8,7 +9,6 @@ import com.glomopay.sdk.android.analytics.MIXPANEL_TRACK_ENDPOINT
 import com.glomopay.sdk.android.analytics.validateMixpanelResponse
 import com.glomopay.sdk.android.monitoring.SdkErrorReporter
 import org.json.JSONArray
-import java.net.URI
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,7 +19,7 @@ import kotlin.test.assertFailsWith
 
 class MixpanelAnalyticsTrackerTest {
     @Test
-    fun tracker_adds_the_approved_common_property_contract() {
+    fun standard_properties_are_on_every_event_and_dropped_keys_are_gone() {
         val events = mutableListOf<AnalyticsEvent>()
         val tracker = MixpanelAnalyticsTracker(
             config = GlomoPayConfig(
@@ -33,7 +33,8 @@ class MixpanelAnalyticsTrackerTest {
             executor = java.util.concurrent.Executor(Runnable::run),
             clock = { 1_723_620_000_000L },
             deviceProperties = { mapOf(
-                "device_os_version" to "14",
+                "\$os" to "Android",
+                "\$os_version" to "14",
                 "\$model" to "Pixel 8",
                 "\$device" to "shiba",
                 "\$wifi_enabled" to true,
@@ -43,33 +44,39 @@ class MixpanelAnalyticsTrackerTest {
             ) },
         )
 
+        tracker.track(AnalyticsEvents.SDK_PAGE_VIEWED, mapOf("page_name" to "checkout"))
         tracker.updateFlowType("lrs")
-        tracker.updateCheckoutUrl("https://checkout.glomopay.com/?orderId=order_123")
-        tracker.track("Checkout Started")
+        tracker.track(AnalyticsEvents.SDK_PAGE_VIEWED, mapOf("page_name" to "checkout"))
 
-        val properties = events.single().properties
+        val (beforeResolve, properties) = events.map { it.properties }
+        assertFalse(beforeResolve.containsKey("journey"))
+        assertEquals("lrs", properties["journey"])
+        assertEquals("android_sdk", properties["integration"])
+        assertEquals("android", properties["platform"])
+        assertEquals("1.0.0", properties["sdk_version"])
+        assertEquals("test_public_key", properties["public_key"])
+        assertEquals(BuildConfig.GLOMO_INTERNAL_BUILD, properties["dev_mode"])
+        assertEquals("test", properties["key_mode"])
+        assertEquals("order_123", properties["resource_id"])
         assertEquals("\$device:session-uuid", properties["distinct_id"])
         assertEquals("session-uuid", properties["\$device_id"])
         assertEquals("session-uuid", properties["journey_id"])
-        assertEquals("session-uuid", properties["session_id"])
-        assertEquals("order_123", properties["order_id"])
+        assertTrue(properties["\$insert_id"] is String)
+        assertEquals(1_723_620_000_000L, properties["time"])
         assertEquals("Pixel 8", properties["\$model"])
         assertEquals(true, properties["\$wifi_enabled"])
-        assertEquals(false, properties["\$cellular_enabled"])
         assertEquals(36, properties["merchant_target_sdk_version"])
-        assertEquals("lrs", properties["flow_type"])
-        assertEquals(true, properties["mock_mode"])
-        assertEquals(BuildConfig.GLOMO_INTERNAL_BUILD, properties["dev_mode"])
-        assertEquals("android-sdk", properties["surface"])
-        assertEquals(1_723_620_000_000L, properties["time"])
-        assertEquals("2024-08-14T12:50:00.000+05:30", properties["timestamp"])
+        events.forEach { event ->
+            DROPPED_KEYS.forEach { assertFalse(it in event.properties, it) }
+            event.properties.keys.forEach { assertTrue(KEY_PATTERN.matches(it), it) }
+        }
     }
 
     @Test
-    fun subscription_flow_keeps_nullable_order_identity_without_fallback() {
+    fun subscription_journey_uses_the_subscription_as_the_resource() {
         val events = mutableListOf<AnalyticsEvent>()
         val tracker = MixpanelAnalyticsTracker(
-            config = GlomoPayConfig(publicKey = "test_public_key", subscriptionId = "sub_123"),
+            config = GlomoPayConfig(publicKey = "live_public_key", subscriptionId = "sub_123"),
             sessionId = "session-uuid",
             sdkVersion = "1.0.0",
             initialFlowType = "standard",
@@ -78,31 +85,13 @@ class MixpanelAnalyticsTrackerTest {
             deviceProperties = { emptyMap() },
         )
 
-        tracker.track("SDK Initialized")
+        tracker.track(AnalyticsEvents.SDK_LOADED)
 
         val properties = events.single().properties
-        assertTrue(properties.containsKey("order_id"))
-        assertEquals(null, properties["order_id"])
+        assertEquals("sub_123", properties["resource_id"])
+        assertEquals("subscription", properties["journey"])
+        assertEquals("live", properties["key_mode"])
         assertEquals("\$device:session-uuid", properties["distinct_id"])
-        assertEquals("sub_123", properties["subscription_id"])
-        assertTrue(properties.containsKey("checkout_url"))
-        assertEquals(null, properties["checkout_url"])
-    }
-
-    @Test
-    fun checkout_url_is_tracked_without_its_query_string() {
-        val events = mutableListOf<AnalyticsEvent>()
-        val sessionId = UUID.randomUUID().toString()
-        val config = GlomoPayConfig(publicKey = "test_public_key", orderId = "order_123")
-        val tracker = tracker(config, sessionId) { events += it }
-
-        tracker.updateCheckoutUrl(ConfigManager.getCheckoutUrl(config, "lrs", colorScheme = null, journeyId = sessionId))
-        tracker.track("Checkout Started")
-
-        val checkoutUrl = events.single().properties["checkout_url"] as String
-        assertEquals("https://lrs-checkout.glomopay.com/", checkoutUrl)
-        assertEquals(null, URI(checkoutUrl).rawQuery)
-        assertFalse(checkoutUrl.contains("journeyId"))
     }
 
     @Test
@@ -114,12 +103,12 @@ class MixpanelAnalyticsTrackerTest {
         }
 
         tracker.track(
-            "Checkout Started",
+            AnalyticsEvents.SDK_PAGE_VIEWED,
             mapOf(
                 "journey_id" to "overridden",
                 "distinct_id" to "overridden",
                 "\$device_id" to "overridden",
-                "reason" to "kept",
+                "page_name" to "checkout",
             ),
         )
 
@@ -127,7 +116,7 @@ class MixpanelAnalyticsTrackerTest {
         assertEquals(sessionId, properties["journey_id"])
         assertEquals("\$device:$sessionId", properties["distinct_id"])
         assertEquals(sessionId, properties["\$device_id"])
-        assertEquals("kept", properties["reason"])
+        assertEquals("checkout", properties["page_name"])
     }
 
     @Test
@@ -135,8 +124,8 @@ class MixpanelAnalyticsTrackerTest {
         val events = mutableListOf<AnalyticsEvent>()
         val tracker = tracker(GlomoPayConfig(publicKey = "test_public_key", orderId = "order_123")) { events += it }
 
-        tracker.track("Navigation Started")
-        tracker.track("Navigation Started")
+        tracker.track(AnalyticsEvents.SDK_CTA_CLICKED)
+        tracker.track(AnalyticsEvents.SDK_CTA_CLICKED)
 
         val insertIds = events.map { it.properties["\$insert_id"] as String }
         assertEquals(2, insertIds.size)
@@ -158,8 +147,8 @@ class MixpanelAnalyticsTrackerTest {
 
         GlomoPaySdk.trackSdkOpened(tracker)
 
-        assertEquals(listOf("SDK Initialized", "sdk_loaded"), events.map { it.name })
-        val properties = events.single { it.name == "sdk_loaded" }.properties
+        assertEquals(listOf(AnalyticsEvents.SDK_LOADED), events.map { it.name })
+        val properties = events.single().properties
         assertEquals("android_sdk", properties["integration"])
         assertEquals("1.0.0", properties["sdk_version"])
         assertEquals("android", properties["platform"])
@@ -172,19 +161,19 @@ class MixpanelAnalyticsTrackerTest {
     @Test
     fun encoder_creates_mixpanel_track_array_and_injects_token() {
         val payload = MixpanelEventEncoder.encode(
-            AnalyticsEvent("SDK Initialized", mapOf(
-                "distinct_id" to "order_1",
-                "checkout_url" to null,
+            AnalyticsEvent(AnalyticsEvents.SDK_LOADED, mapOf(
+                "distinct_id" to "\$device:journey-1",
+                "resource_id" to null,
             )),
             "project-token",
         )
 
         val event = JSONArray(payload).getJSONObject(0)
-        assertEquals("SDK Initialized", event.getString("event"))
+        assertEquals(AnalyticsEvents.SDK_LOADED, event.getString("event"))
         val properties = event.getJSONObject("properties")
         assertEquals("project-token", properties.getString("token"))
-        assertTrue(properties.has("checkout_url"))
-        assertTrue(properties.isNull("checkout_url"))
+        assertTrue(properties.has("resource_id"))
+        assertTrue(properties.isNull("resource_id"))
         assertFalse(payload.contains("Authorization"))
         assertEquals("https://api.mixpanel.com/track?ip=1", MIXPANEL_TRACK_ENDPOINT)
     }
@@ -211,11 +200,11 @@ class MixpanelAnalyticsTrackerTest {
             errorReporter = reporter,
         )
 
-        tracker.track("Checkout Started")
+        tracker.track(AnalyticsEvents.SDK_LOADED)
 
         assertEquals("mixpanel_delivery", reporter.operation)
-        assertEquals("Checkout Started", reporter.context["event_name"])
-        assertEquals(listOf("Checkout Started"), reporter.breadcrumbs)
+        assertEquals(AnalyticsEvents.SDK_LOADED, reporter.context["event_name"])
+        assertEquals(listOf(AnalyticsEvents.SDK_LOADED), reporter.breadcrumbs)
     }
 
     private fun tracker(
@@ -248,5 +237,13 @@ class MixpanelAnalyticsTrackerTest {
         }
 
         override fun updateFlowType(flowType: String) = Unit
+    }
+
+    private companion object {
+        val KEY_PATTERN = Regex("^\\$?[a-z0-9_]+$")
+        val DROPPED_KEYS = listOf(
+            "session_id", "order_id", "subscription_id", "flow_type", "mock_mode", "sdk_source", "surface",
+            "checkout_url", "timestamp", "device_os_version",
+        )
     }
 }

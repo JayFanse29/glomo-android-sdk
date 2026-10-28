@@ -14,7 +14,9 @@ import java.net.URL
 public class GlomoPayApiClient public constructor(
     private val publicKey: String,
 ) {
-    public suspend fun fetchOrder(orderId: String): Map<String, Any?> = withContext(Dispatchers.IO) {
+    public suspend fun fetchOrder(orderId: String): Map<String, Any?> = fetchOrderWithStatus(orderId).second
+
+    internal suspend fun fetchOrderWithStatus(orderId: String): Pair<Int, Map<String, Any?>> = withContext(Dispatchers.IO) {
         val url = URL("https://api.glomopay.com/api/public/v1/order/$orderId")
         val connection = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -31,7 +33,7 @@ public class GlomoPayApiClient public constructor(
             } else {
                 ""
             }
-            mapOrderFetchResponse(status, body)
+            status to mapOrderFetchResponse(status, body)
         } catch (error: GlomoPayOrderFetchException) {
             throw error
         } catch (error: SocketTimeoutException) {

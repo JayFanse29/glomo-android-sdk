@@ -1,6 +1,8 @@
 package com.glomopay.sdk.android
 
 import com.glomopay.sdk.android.analytics.AnalyticsSanitizer
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,39 +11,39 @@ import kotlin.test.assertTrue
 
 class AnalyticsSanitizerTest {
     @Test
-    fun bank_redirect_url_keeps_only_https_scheme_and_lowercase_hostname() {
-        val sanitized = AnalyticsSanitizer.navigationUrl(
-            "https://user:pass@bank.example:8443/verify/ABCDE1234F?phone=9876543210#otp",
+    fun shared_fixture_cases_are_masked_as_specified() {
+        val fixture = JSONObject(
+            requireNotNull(javaClass.classLoader?.getResource("analytics-sanitizer-fixture.json")).readText(),
         )
+        val cases = fixture.getJSONArray("cases")
 
-        val bankSanitized = AnalyticsSanitizer.bankRedirectUrl(
+        for (index in 0 until cases.length()) {
+            val case = cases.getJSONObject(index)
+            val key = case.getString("key")
+            val sanitized = AnalyticsSanitizer.properties(mapOf(key to fixtureValue(case.get("value"))))
+
+            if (case.optBoolean("absent")) {
+                assertFalse(sanitized.containsKey(key), case.getString("name"))
+            } else {
+                assertTrue(sanitized.containsKey(key), case.getString("name"))
+                assertEquals(fixtureValue(case.get("expected")), sanitized[key], case.getString("name"))
+            }
+        }
+    }
+
+    @Test
+    fun bank_redirect_url_keeps_only_https_scheme_and_lowercase_hostname() {
+        val sanitized = AnalyticsSanitizer.bankRedirectUrl(
             "https://user:pass@3DS.IN.Secure.Bank.COM:8443/verify/ABCDE1234F?phone=9876543210#otp",
         )
 
-        assertEquals("https://bank.example:8443/verify/%5BREDACTED%5D", sanitized)
-        assertEquals("https://3ds.in.secure.bank.com", bankSanitized)
+        assertEquals("https://3ds.in.secure.bank.com", sanitized)
     }
 
     @Test
     fun bank_redirect_url_rejects_non_https_or_malformed_urls() {
         assertEquals(null, AnalyticsSanitizer.bankRedirectUrl("http://bank.example/otp"))
         assertEquals(null, AnalyticsSanitizer.bankRedirectUrl("not-a-url"))
-    }
-
-    @Test
-    fun pii_values_are_redacted_but_opaque_glomo_ids_are_preserved() {
-        val sanitized = AnalyticsSanitizer.properties(mapOf(
-            "order_id" to "order_6af743563",
-            "message" to "user@example.com 9876543210 ABCDE1234F N1234567 ABC1234567",
-            "customer_email" to "user@example.com",
-        ))
-
-        assertEquals("order_6af743563", sanitized["order_id"])
-        assertEquals(
-            "[REDACTED] [REDACTED] [REDACTED] [REDACTED] [REDACTED]",
-            sanitized["message"],
-        )
-        assertFalse(sanitized.containsKey("customer_email"))
     }
 
     @Test
@@ -52,7 +54,7 @@ class AnalyticsSanitizerTest {
                 "journey_id" to id,
                 "\$device_id" to id,
                 "distinct_id" to "\$device:$id",
-                "session_id" to id,
+                "resource_id" to "order_$id",
                 "\$insert_id" to UUID.randomUUID().toString(),
             )
 
@@ -62,36 +64,27 @@ class AnalyticsSanitizerTest {
 
     @Test
     fun identifier_values_are_capped_at_the_max_string_length() {
-        val sanitized = AnalyticsSanitizer.properties(mapOf("order_id" to "o".repeat(2_000)))
+        val sanitized = AnalyticsSanitizer.properties(mapOf("resource_id" to "o".repeat(2_000)))
 
-        assertEquals("o".repeat(AnalyticsSanitizer.MAX_STRING_LENGTH), sanitized["order_id"])
+        assertEquals("o".repeat(AnalyticsSanitizer.MAX_STRING_LENGTH), sanitized["resource_id"])
     }
 
     @Test
     fun identifier_allowlist_does_not_exempt_other_keys() {
         val sanitized = AnalyticsSanitizer.properties(mapOf(
-            "journey_id" to "01d245ac-f936-4545-9013-6a1b2c3d4e5f",
-            "message" to "01d245ac-f936-4545-9013-6a1b2c3d4e5f",
+            "journey_id" to "123456789012",
+            "error_detail" to "123456789012",
         ))
 
-        assertEquals("01d245ac-f936-4545-9013-6a1b2c3d4e5f", sanitized["journey_id"])
-        assertEquals("01d245ac-f936-[REDACTED]-6a1b2c3d4e5f", sanitized["message"])
+        assertEquals("123456789012", sanitized["journey_id"])
+        assertEquals("••••9012", sanitized["error_detail"])
     }
 
-    @Test
-    fun nullable_compliance_signal_is_retained() {
-        val sanitized = AnalyticsSanitizer.properties(mapOf("is_compliant" to null))
-
-        assertTrue(sanitized.containsKey("is_compliant"))
-        assertEquals(null, sanitized["is_compliant"])
-    }
-
-    @Test
-    fun generated_iso_timestamp_is_not_mistaken_for_a_numeric_identifier() {
-        val timestamp = "2026-08-17T14:33:19.153+05:30"
-
-        val sanitized = AnalyticsSanitizer.properties(mapOf("timestamp" to timestamp))
-
-        assertEquals(timestamp, sanitized["timestamp"])
+    private fun fixtureValue(value: Any?): Any? = when (value) {
+        JSONObject.NULL -> null
+        is JSONArray -> (0 until value.length()).map { value.get(it) }
+        is JSONObject -> value.keys().asSequence().associateWith { value.get(it) }
+        is Int -> value.toLong()
+        else -> value
     }
 }

@@ -18,7 +18,6 @@ internal object AndroidAnalyticsProperties {
         val connectivity = networkState(context)
 
         return mapOf(
-            "device_os_version" to osVersion(),
             "\$model" to Build.MODEL.takeIf(String::isNotBlank),
             "\$device" to Build.DEVICE.takeIf(String::isNotBlank),
             "\$os" to "Android",

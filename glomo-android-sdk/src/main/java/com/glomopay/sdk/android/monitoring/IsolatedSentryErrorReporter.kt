@@ -3,7 +3,6 @@ package com.glomopay.sdk.android.monitoring
 import android.content.Context
 import androidx.annotation.VisibleForTesting
 import com.glomopay.sdk.android.GlomoPayConfig
-import com.glomopay.sdk.android.analytics.AnalyticsSanitizer
 import com.glomopay.sdk.android.analytics.GlomoPayLogger
 import org.json.JSONArray
 import org.json.JSONObject
@@ -45,8 +44,8 @@ internal class IsolatedSentryErrorReporter(
         runCatching {
             val breadcrumb = JSONObject()
                 .put("timestamp", SentryEnvelope.isoTimestamp(clock()))
-                .put("category", AnalyticsSanitizer.text(category, 80))
-                .put("message", AnalyticsSanitizer.text(message, 200))
+                .put("category", SentryScrubber.text(category, 80))
+                .put("message", SentryScrubber.text(message, 200))
                 .put("level", "info")
             val safeData = sanitizeContext(data)
             if (safeData.length() > 0) breadcrumb.put("data", safeData)
@@ -87,7 +86,7 @@ internal class IsolatedSentryErrorReporter(
     private fun buildEvent(snapshot: CaptureSnapshot, operation: String, error: Throwable): JSONObject {
         val tags = JSONObject()
             .put("sdk_source", SDK_NAME)
-            .put("operation", AnalyticsSanitizer.text(operation, 80))
+            .put("operation", SentryScrubber.text(operation, 80))
             .put("flow_type", snapshot.flowType)
             .put("sdk_session_id", sessionId)
             .put("dev_mode", devMode.toString())
@@ -163,7 +162,7 @@ internal class IsolatedSentryErrorReporter(
     }
 
     private fun sanitizeContext(context: Map<String, Any?>): JSONObject = JSONObject().apply {
-        AnalyticsSanitizer.properties(context).forEach { (key, value) ->
+        SentryScrubber.properties(context).forEach { (key, value) ->
             if (key in ALLOWED_CONTEXT_KEYS && value != null) put(key, jsonValue(value))
         }
     }

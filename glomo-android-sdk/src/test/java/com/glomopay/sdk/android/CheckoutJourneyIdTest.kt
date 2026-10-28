@@ -49,10 +49,10 @@ class CheckoutJourneyIdTest {
         val journeyId = journeyIdOf(checkout.loadedUrl())
 
         assertNotNull(journeyId)
-        assertEquals(
-            listOf(AnalyticsEvents.SDK_INITIALIZED, AnalyticsEvents.SDK_LOADED),
-            checkout.events.take(2).map { it.name },
-        )
+        assertEquals(AnalyticsEvents.SDK_LOADED, checkout.events.first().name)
+        assertEquals(1, checkout.events.count { it.name == AnalyticsEvents.SDK_LOADED })
+        assertEquals("android", checkout.events.first().properties["platform"])
+        assertEquals("android_sdk", checkout.events.first().properties["integration"])
         checkout.events.forEach { event ->
             assertEquals(journeyId, event.properties["journey_id"], event.name)
             assertEquals(journeyId, event.properties["\$device_id"], event.name)

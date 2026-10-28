@@ -4,66 +4,59 @@ internal interface AnalyticsTracker {
     fun track(event: String, properties: Map<String, Any?> = emptyMap())
 
     fun updateFlowType(flowType: String)
-
-    fun updateCheckoutUrl(url: String)
 }
 
 internal object NoOpAnalyticsTracker : AnalyticsTracker {
     override fun track(event: String, properties: Map<String, Any?>) = Unit
 
     override fun updateFlowType(flowType: String) = Unit
-
-    override fun updateCheckoutUrl(url: String) = Unit
 }
 
 internal object AnalyticsEvents {
-    const val SDK_INITIALIZED = "SDK Initialized"
     const val SDK_LOADED = "sdk_loaded"
-    const val SDK_VALIDATION_FAILED = "SDK Validation Failed"
-    const val DEVICE_COMPLIANCE_CHECKED = "Device Compliance Checked"
-    const val DEVICE_COMPLIANCE_BLOCKED = "Device Compliance Blocked"
-    const val ORDER_TYPE_DETECTION_STARTED = "Order Type Detection Started"
-    const val ORDER_TYPE_RESOLVED = "Order Type Resolved"
-    const val ORDER_TYPE_DETECTION_FAILED = "Order Type Detection Failed"
-    const val CHECKOUT_STARTED = "Checkout Started"
-    const val CHECKOUT_WEBVIEW_CREATED = "Checkout WebView Created"
-    const val CHECKOUT_URL_RESOLVED = "Checkout URL Resolved"
-    const val CHECKOUT_NAVIGATION_STARTED = "Checkout Navigation Started"
-    const val CHECKOUT_NAVIGATION_FINISHED = "Checkout Navigation Finished"
-    const val CHECKOUT_BRIDGE_READY = "Checkout Bridge Ready"
-    const val CHECKOUT_OPEN_TIMEOUT = "Checkout Open Timeout"
-    const val NAVIGATION_STARTED = "Navigation Started"
-    const val NAVIGATION_FINISHED = "Navigation Finished"
-    const val NAVIGATION_URL_CHANGE = "Navigation URL Change"
-    const val REDIRECT_OPENED = "Redirect Opened"
-    const val REDIRECT_CLOSED = "Redirect Closed"
-    const val REDIRECT_PAGE_STARTED = "Redirect Page Started"
-    const val REDIRECT_PAGE_FINISHED = "Redirect Page Finished"
-    const val REDIRECT_URL_CHANGE = "Redirect URL Change"
-    const val PAYMENT_SUCCESS = "Payment Success"
-    const val PAYMENT_FAILURE = "Payment Failure"
-    const val PAYMENT_PENDING = "Payment Pending"
-    const val PAYMENT_CANCELLED = "Payment Cancelled"
-    const val PAYMENT_TERMINATED = "Payment Terminated"
-    const val BANK_TRANSFER_SUBMITTED = "Bank Transfer Submitted"
-    const val PAY_VIA_BANK_COMPLETED = "Pay Via Bank Completed"
-    const val CONNECTION_ERROR = "Connection Error"
-    const val WEBVIEW_HTTP_ERROR = "WebView HTTP Error"
-    const val WEBVIEW_ERROR = "WebView Error"
-    const val INVALID_MESSAGE_RECEIVED = "Invalid Message Received"
-    const val SDK_ERROR = "SDK Error"
-    const val CHECKOUT_DEPENDENCIES_FAILED = "Checkout Dependencies Failed"
-    const val EDUCATION_STEPS_SHOWN = "Education Steps Shown"
-    const val EDUCATION_STEPS_FAILED = "Education Steps Failed"
-    const val FILE_UPLOAD_REQUESTED = "File Upload Requested"
-    const val FILE_PICKER_ERROR = "File Picker Error"
-    const val DEVICE_PERMISSION_REFUSED = "Device Permission Refused"
-    const val CONSOLE_LOG_CAPTURED = "Console Log Captured"
-    const val UNSUPPORTED_FUNCTIONALITY_USED = "Unsupported Functionality Used"
-
-    /**
-     * The colour scheme changed during a live checkout and was pushed to the pages. Not emitted
-     * for the scheme the checkout opened with.
-     */
-    const val COLOR_SCHEME_CHANGED = "Checkout Color Scheme Changed"
+    const val SDK_PAGE_VIEWED = "sdk_page_viewed"
+    const val SDK_API_BACKEND = "sdk_api_backend"
+    const val SDK_ACTION_SUBMITTED = "sdk_action_submitted"
+    const val SDK_ACTION_FAILED = "sdk_action_failed"
+    const val SDK_CTA_CLICKED = "sdk_cta_clicked"
+    const val SDK_CONTROL_CHANGED = "sdk_control_changed"
+    const val SDK_CHECKOUT_FAILED = "sdk_checkout_failed"
+    const val SDK_CHECKOUT_CLOSED = "sdk_checkout_closed"
 }
+
+internal enum class AnalyticsPage { LOADING, CHECKOUT, BANK_REDIRECT, EDUCATION_CAROUSEL, ERROR }
+
+internal enum class AnalyticsAction { BANK_REDIRECT, DOCUMENT_UPLOAD, DEVICE_PERMISSION, WEBVIEW_LOAD, NAVIGATION, EDUCATION_CAROUSEL }
+
+internal enum class ActionErrorCode {
+    PICKER_ERROR,
+    PERMISSION_DENIED,
+    CONNECTION_ERROR,
+    HTTP_ERROR,
+    WEBVIEW_ERROR,
+    CONTENT_PROCESS_TERMINATED,
+    NON_HTTP_SCHEME,
+    INVALID_WINDOW_OPEN_URL,
+    RENDER_FAILED,
+    OTHER,
+}
+
+internal enum class AnalyticsCta { RETRY, BACK_TO_CHECKOUT }
+
+internal enum class CheckoutFailure {
+    INVALID_INIT_PARAMS,
+    DEPENDENCIES_FAILED_TO_LOAD,
+    COMPLIANCE_BLOCKED,
+    ORDER_FETCH_FAILED,
+    OPEN_TIMEOUT,
+    CONNECTION_ERROR,
+}
+
+internal enum class CloseTrigger { USER_DISMISS, MERCHANT, SDK }
+
+internal enum class PaymentEvent { PAYMENT_SUCCESS, PAYMENT_FAILURE, BANK_TRANSFER_SUBMITTED }
+
+internal enum class ApiErrorCode { TIMEOUT, NETWORK, HTTP_ERROR, INVALID_RESPONSE }
+
+internal val Enum<*>.analyticsValue: String
+    get() = name.lowercase()

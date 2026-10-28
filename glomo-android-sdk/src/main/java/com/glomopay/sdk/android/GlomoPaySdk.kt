@@ -47,8 +47,7 @@ public object GlomoPaySdk {
     }
 
     internal fun trackSdkOpened(analytics: AnalyticsTracker) {
-        analytics.track(AnalyticsEvents.SDK_INITIALIZED)
-        analytics.track(AnalyticsEvents.SDK_LOADED, mapOf("integration" to "android_sdk"))
+        analytics.track(AnalyticsEvents.SDK_LOADED)
     }
 }
 
