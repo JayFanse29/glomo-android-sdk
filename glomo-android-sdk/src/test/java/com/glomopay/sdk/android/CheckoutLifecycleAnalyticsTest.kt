@@ -36,6 +36,27 @@ class CheckoutLifecycleAnalyticsTest {
 
     @Test
     @Suppress("DEPRECATION")
+    fun a_retry_after_the_checkout_was_visible_does_not_send_a_second_checkout_view() {
+        val checkout = RecordedCheckout.open(host, config)
+        checkout.post(mapOf("type" to "bridge.ready"))
+
+        checkout.webView.webViewClient.onReceivedError(checkout.webView, 1, "failed", "https://lrs-checkout.glomopay.com/")
+        checkout.tap("Retry")
+        checkout.post(mapOf("type" to "bridge.ready"))
+
+        assertEquals(
+            listOf("checkout", "error"),
+            checkout.named(AnalyticsEvents.SDK_PAGE_VIEWED).map { it.properties["page_name"] },
+        )
+        val failed = checkout.named(AnalyticsEvents.SDK_ACTION_FAILED).single()
+        assertEquals("webview_load", failed.properties["action_name"])
+        assertEquals("webview_error", failed.properties["error_code"])
+        assertTrue(checkout.named(AnalyticsEvents.SDK_CHECKOUT_FAILED).isEmpty())
+        assertEquals("retry", checkout.named(AnalyticsEvents.SDK_CTA_CLICKED).single().properties["cta_name"])
+    }
+
+    @Test
+    @Suppress("DEPRECATION")
     fun a_failure_before_the_checkout_is_visible_is_one_checkout_failure_then_one_close() {
         val checkout = RecordedCheckout.open(host, config)
 

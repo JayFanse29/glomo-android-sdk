@@ -95,6 +95,18 @@ class MixpanelAnalyticsTrackerTest {
     }
 
     @Test
+    fun key_mode_follows_the_public_key_prefix_and_is_omitted_when_unknown() {
+        val keyModes = listOf("live_key", "test_key", "mock_key", "pk_key").map { publicKey ->
+            val events = mutableListOf<AnalyticsEvent>()
+            tracker(GlomoPayConfig(publicKey = publicKey, orderId = "order_123")) { events += it }
+                .track(AnalyticsEvents.SDK_LOADED)
+            events.single().properties.let { if ("key_mode" in it) it["key_mode"] else "omitted" }
+        }
+
+        assertEquals(listOf("live", "test", "test", "omitted"), keyModes)
+    }
+
+    @Test
     fun standard_properties_win_over_call_site_properties() {
         val events = mutableListOf<AnalyticsEvent>()
         val sessionId = UUID.randomUUID().toString()

@@ -63,7 +63,7 @@ internal class MixpanelAnalyticsTracker(
         putAll(deviceProperties())
         put("public_key", config.publicKey)
         put("dev_mode", com.glomopay.sdk.android.BuildConfig.GLOMO_INTERNAL_BUILD)
-        put("key_mode", if (ConfigManager.isTestOrMock(config.publicKey)) "test" else "live")
+        keyMode()?.let { put("key_mode", it) }
         put("resource_id", config.checkoutId)
         journey()?.let { put("journey", it) }
         put("time", now)
@@ -71,6 +71,12 @@ internal class MixpanelAnalyticsTracker(
         put("\$device_id", sessionId)
         put("\$insert_id", UUID.randomUUID().toString())
         put("distinct_id", "\$device:$sessionId")
+    }
+
+    private fun keyMode(): String? = when {
+        config.publicKey.startsWith("live_") -> "live"
+        ConfigManager.isTestOrMock(config.publicKey) -> "test"
+        else -> null
     }
 
     private fun journey(): String? = when {

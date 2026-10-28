@@ -19,8 +19,9 @@ internal class CheckoutAnalytics(private val tracker: AnalyticsTracker) {
     fun updateFlowType(flowType: String) = tracker.updateFlowType(flowType)
 
     fun checkoutViewed() {
-        checkoutVisible = true
         currentPage = AnalyticsPage.CHECKOUT
+        if (checkoutVisible) return
+        checkoutVisible = true
         pageViewed(AnalyticsPage.CHECKOUT)
     }
 

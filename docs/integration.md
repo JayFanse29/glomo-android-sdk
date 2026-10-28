@@ -125,9 +125,10 @@ request IP; the SDK does not request device location permission or read GPS coor
 Events follow Glomo's shared SDK catalogue: `sdk_loaded`, `sdk_page_viewed`, `sdk_api_backend`,
 `sdk_action_submitted`, `sdk_action_failed`, `sdk_cta_clicked`, `sdk_control_changed`,
 `sdk_checkout_failed` and `sdk_checkout_closed`. Every event carries `integration` (`android_sdk`),
-`platform` (`android`), `sdk_version`, `public_key`, `dev_mode`, `key_mode` (`test` or `live`),
-`resource_id` (the order or subscription id), `journey` (`standard`, `lrs` or `subscription`, once
-known) and the approved device, screen, merchant-app and locale properties. `journey_id` and
+`platform` (`android`), `sdk_version`, `public_key`, `dev_mode`, `key_mode` (`live` for a `live_`
+key, `test` for a `test_` or `mock_` key), `resource_id` (the order or subscription id), `journey`
+(`standard`, `lrs` or `subscription`, once known) and the approved device, screen, merchant-app and
+locale properties. `journey_id` and
 `$device_id` carry the id generated for each `startCheckout` call, which checkout also receives as
 `journeyId`; `distinct_id` is `$device:<journey_id>` and `$insert_id` is unique per event. Property
 values are flat strings, numbers or booleans. Event, page, action and error codes come from fixed

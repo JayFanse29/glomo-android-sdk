@@ -76,7 +76,7 @@ class AnalyticsCatalogueTest {
                         assertListed(
                             event,
                             "payment_event",
-                            setOf("payment_success", "payment_failure", "payment_pending", "bank_transfer_submitted"),
+                            setOf("payment_success", "payment_failure", "bank_transfer_submitted"),
                         )
                     }
                 }
@@ -176,7 +176,7 @@ class AnalyticsCatalogueTest {
         )
         val PAGE_NAMES = setOf("checkout", "bank_redirect", "education_carousel", "error")
         val WEBVIEW_LOAD_CODES = setOf("connection_error", "http_error", "webview_error", "content_process_terminated")
-        val ERROR_PAGE_CODES = WEBVIEW_LOAD_CODES + "open_timeout"
+        val ERROR_PAGE_CODES = WEBVIEW_LOAD_CODES + "open_timeout" + "other"
         val API_ERROR_CODES = setOf("timeout", "network", "http_error", "invalid_response")
         val ACTION_ERROR_CODES = mapOf(
             "document_upload" to setOf("picker_error"),
