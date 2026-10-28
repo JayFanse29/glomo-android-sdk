@@ -76,6 +76,17 @@ class CheckoutLifecycleAnalyticsTest {
     }
 
     @Test
+    fun the_activity_going_away_without_an_end_is_one_user_dismiss_close() {
+        val checkout = RecordedCheckout.open(host, config)
+        checkout.post(mapOf("type" to "bridge.ready"))
+
+        checkout.controller.pause().stop().destroy()
+
+        val closed = checkout.named(AnalyticsEvents.SDK_CHECKOUT_CLOSED).single()
+        assertEquals(mapOf("trigger" to "user_dismiss", "page_name" to "checkout"), closed.properties.filterKeys(CLOSE_KEYS::contains))
+    }
+
+    @Test
     fun an_outcome_is_one_close_with_its_payment_event_and_no_payment_event() {
         val checkout = RecordedCheckout.open(host, config)
         checkout.post(mapOf("type" to "bridge.ready"))

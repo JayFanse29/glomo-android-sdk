@@ -5,6 +5,7 @@
     { "name": "card-length digits that fail Luhn", "key": "error_detail", "value": "1234567890123456", "expected": "1234567890123456" },
     { "name": "tax PAN keeps the last 4", "key": "error_detail", "value": "ABCDE1234F", "expected": "XXXXXX234F" },
     { "name": "phone", "key": "error_detail", "value": "9876543210", "expected": "••••3210" },
+    { "name": "Luhn-valid 10 digits is phone-like, not a card", "key": "error_detail", "value": "9876543217", "expected": "••••3217" },
     { "name": "Aadhaar-like with spaces", "key": "error_detail", "value": "1234 5678 9012", "expected": "••••9012" },
     { "name": "passport", "key": "error_detail", "value": "N1234567", "expected": "•••" },
     { "name": "voter id", "key": "error_detail", "value": "ABC1234567", "expected": "•••" },

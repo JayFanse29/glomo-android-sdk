@@ -303,11 +303,11 @@ public class GlomoPayCheckoutActivity : Activity() {
                 val (httpStatus, order) = withContext(Dispatchers.IO) {
                     GlomoPayApiClient(config.publicKey).fetchOrderWithStatus(orderId)
                 }
-                if (isFinishing || isDestroyed) return@launch
                 val detectedType = ConfigManager.detectOrderType(order)
                 analytics.updateFlowType(detectedType)
                 errorReporter.updateFlowType(detectedType)
                 analytics.orderFetchSucceeded(httpStatus)
+                if (isFinishing || isDestroyed) return@launch
                 openCheckout(detectedType)
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error

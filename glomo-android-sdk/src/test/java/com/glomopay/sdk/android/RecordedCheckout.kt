@@ -18,11 +18,14 @@ import java.time.Duration
 import org.json.JSONObject
 import org.robolectric.Robolectric
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.android.controller.ActivityController
 
 internal class RecordedCheckout private constructor(
-    val activity: GlomoPayCheckoutActivity,
+    val controller: ActivityController<GlomoPayCheckoutActivity>,
     val events: List<AnalyticsEvent>,
 ) {
+    val activity: GlomoPayCheckoutActivity = controller.get()
+
     private val root: View = activity.findViewById(android.R.id.content)
 
     val webView: WebView
@@ -36,6 +39,14 @@ internal class RecordedCheckout private constructor(
             .last()
         target.postMessage(JSONObject(message).toString())
         shadowOf(Looper.getMainLooper()).idle()
+    }
+
+    fun idleUntil(timeoutMs: Long = 5_000, condition: () -> Boolean) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (!condition() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(10)
+            shadowOf(Looper.getMainLooper()).idle()
+        }
     }
 
     fun timeOut() {
@@ -52,6 +63,7 @@ internal class RecordedCheckout private constructor(
             host: Activity,
             config: GlomoPayConfig,
             listener: GlomoPayListener = NoOpListener,
+            orderType: String = "lrs",
         ): RecordedCheckout {
             val events = mutableListOf<AnalyticsEvent>()
             SdkErrorReporterFactory.reporterFactory = { _, _ -> NoOpSdkErrorReporter }
@@ -66,15 +78,16 @@ internal class RecordedCheckout private constructor(
                     deviceProperties = { emptyMap() },
                 )
             }
-            GlomoPaySdk.startCheckout(host, config, listener, orderType = "lrs")
+            GlomoPaySdk.startCheckout(host, config, listener, orderType = orderType)
             val intent = requireNotNull(shadowOf(host).nextStartedActivity)
-            val activity = Robolectric.buildActivity(GlomoPayCheckoutActivity::class.java, intent).setup().get()
-            return RecordedCheckout(activity, events)
+            val controller = Robolectric.buildActivity(GlomoPayCheckoutActivity::class.java, intent).setup()
+            return RecordedCheckout(controller, events)
         }
 
         fun reset() {
             AnalyticsFactory.trackerFactory = null
             SdkErrorReporterFactory.reporterFactory = null
+            GlomoPayApiClient.fetchOverride = null
         }
     }
 

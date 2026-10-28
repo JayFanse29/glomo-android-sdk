@@ -130,7 +130,8 @@ Events follow Glomo's shared SDK catalogue: `sdk_loaded`, `sdk_page_viewed`, `sd
 known) and the approved device, screen, merchant-app and locale properties. `journey_id` and
 `$device_id` carry the id generated for each `startCheckout` call, which checkout also receives as
 `journeyId`; `distinct_id` is `$device:<journey_id>` and `$insert_id` is unique per event. Property
-values are flat strings, numbers or booleans from fixed lists; no free-text error message is sent.
+values are flat strings, numbers or booleans. Event, page, action and error codes come from fixed
+lists, and no free-text error message is sent.
 
 For bank/3DS redirects, only the `https://hostname` origin is transmitted, as `url_origin`.
 Credentials, port, path, query, and fragment are discarded first. WebView context values are limited
